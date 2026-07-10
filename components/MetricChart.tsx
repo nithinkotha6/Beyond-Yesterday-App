@@ -3,29 +3,38 @@
 import ReactECharts from 'echarts-for-react';
 import { Users, ChevronDown } from 'lucide-react';
 
-const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+export type ChartUser = {
+  name: string;
+  color: string;
+  avatar_url: string;
+  data: number[]; // 7 values, index 0 = MON
+};
 
-const MOCK_USERS = [
-  { name: 'Nithin', color: '#FF3B30', avatar_url: '', data: [0,  2,  5,  9, 13, 17, 19] },
-  { name: 'Ashray', color: '#007AFF', avatar_url: '', data: [0,  3,  7, 10, 12, 15, 17] },
-  { name: 'Rahul',  color: '#AF52DE', avatar_url: '', data: [0,  2,  6,  9, 11, 14, 16] },
-  { name: 'Mouye',  color: '#34C759', avatar_url: '', data: [0,  1,  3,  5,  7,  8,  9] },
-  { name: 'Narri',  color: '#FFCC00', avatar_url: '', data: [0,  1,  2,  3,  4,  5,  6] },
-];
+interface MetricChartProps {
+  users: ChartUser[];
+  title?: string;
+  days?: string[]; // x-axis labels
+}
+
+const DEFAULT_DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const COLOR_PALETTE = ['#FF3B30', '#007AFF', '#AF52DE', '#34C759', '#FFCC00'];
 
 /**
- * ECharts multi-series line chart.
+ * ECharts multi-series line chart — live data only, no mock arrays.
  * Spec: Features.md §4, frontend.md §4
- * - Horizontal dashed gridlines only; Y-axis line hidden.
- * - Colored avatar-circle terminals at the last (SUN) data point.
- * - Bold numeric value label to the right of each terminal node.
  */
-export default function MetricChart() {
+export default function MetricChart({
+  users,
+  title = 'Weekly Progress',
+  days = DEFAULT_DAYS,
+}: MetricChartProps) {
+  const hasData = users.length > 0;
+
   const option = {
     grid: { left: 36, right: 72, top: 16, bottom: 28, containLabel: false },
     xAxis: {
       type: 'category',
-      data: DAYS,
+      data: days,
       boundaryGap: false,
       axisLine: { show: false },
       axisTick: { show: false },
@@ -33,8 +42,6 @@ export default function MetricChart() {
     },
     yAxis: {
       type: 'value',
-      min: 0,
-      max: 22,
       axisLine: { show: false },
       axisTick: { show: false },
       axisLabel: { color: '#9CA3AF', fontSize: 11 },
@@ -49,38 +56,39 @@ export default function MetricChart() {
       borderColor: '#E5E7EB',
       textStyle: { color: '#111827', fontSize: 12 },
     },
-    series: MOCK_USERS.map((u) => ({
-      type: 'line',
-      name: u.name,
-      smooth: true,
-      // Base symbol: hidden for all non-terminal points.
-      // Terminal point uses image:// if avatar_url is set, otherwise a colored circle.
-      symbol: 'circle',
-      lineStyle: { color: u.color, width: 2.5 },
-      data: u.data.map((v, i) => {
-        const isLast = i === DAYS.length - 1;
-        // Use the profile avatar_url with ECharts image:// protocol at the terminal node.
-        const terminalSymbol = isLast && u.avatar_url
-          ? `image://${u.avatar_url}`
-          : 'circle';
-        return {
-          value: v,
-          symbol: terminalSymbol,
-          symbolSize: isLast ? (u.avatar_url ? 34 : 30) : 0,
-          itemStyle: isLast
-            ? { color: u.color, borderColor: '#fff', borderWidth: 3 }
-            : { opacity: 0 },
-          label: {
-            show: isLast,
-            position: 'right',
-            formatter: `${v}`,
-            fontWeight: 'bold',
-            fontSize: 14,
-            color: '#111827',
-          },
-        };
-      }),
-    })),
+    series: users.map((u, idx) => {
+      const color = u.color || COLOR_PALETTE[idx % COLOR_PALETTE.length];
+      return {
+        type: 'line',
+        name: u.name,
+        smooth: true,
+        symbol: 'circle',
+        lineStyle: { color, width: 2.5 },
+        data: u.data.map((v, i) => {
+          const isLast = i === days.length - 1;
+          const terminalSymbol =
+            isLast && u.avatar_url && u.avatar_url.startsWith('http')
+              ? `image://${u.avatar_url}`
+              : 'circle';
+          return {
+            value: v,
+            symbol: terminalSymbol,
+            symbolSize: isLast ? 30 : 0,
+            itemStyle: isLast
+              ? { color, borderColor: '#fff', borderWidth: 3 }
+              : { opacity: 0 },
+            label: {
+              show: isLast,
+              position: 'right',
+              formatter: `${v}`,
+              fontWeight: 'bold',
+              fontSize: 14,
+              color: '#111827',
+            },
+          };
+        }),
+      };
+    }),
   };
 
   return (
@@ -88,9 +96,7 @@ export default function MetricChart() {
       {/* Card header */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-base font-bold text-[#111827]">
-            Highest no of Beers 🍺
-          </h2>
+          <h2 className="text-base font-bold text-[#111827]">{title}</h2>
           <p className="text-xs text-[#6B7280] mt-0.5">Weekly Progress</p>
         </div>
         <button className="flex items-center gap-1.5 text-xs text-[#6B7280] bg-[#F7F8FA] rounded-lg px-3 py-1.5 font-medium hover:bg-gray-100 transition-colors">
@@ -100,12 +106,30 @@ export default function MetricChart() {
         </button>
       </div>
 
-      {/* Chart — fills full width, height fixed; canvas resizes via style */}
-      <ReactECharts
-        option={option}
-        style={{ height: 272, width: '100%' }}
-        opts={{ renderer: 'canvas' }}
-      />
+      {hasData ? (
+        <ReactECharts
+          option={option}
+          style={{ height: 272, width: '100%' }}
+          opts={{ renderer: 'canvas' }}
+        />
+      ) : (
+        <div className="h-[272px] flex flex-col items-center justify-center gap-2 text-center">
+          <svg
+            viewBox="0 0 48 48" fill="none"
+            className="w-10 h-10 text-[#E5E7EB]"
+          >
+            <path
+              d="M6 36 L14 24 L22 29 L30 16 L38 20 L46 10"
+              stroke="currentColor" strokeWidth="3"
+              strokeLinecap="round" strokeLinejoin="round"
+            />
+          </svg>
+          <p className="text-sm font-semibold text-[#9CA3AF]">No activity yet</p>
+          <p className="text-xs text-[#D1D5DB]">
+            Log your first activity to see it here.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

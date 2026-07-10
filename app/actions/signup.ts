@@ -20,7 +20,12 @@ export async function signUpWithInvite(
   const phone_number = (formData.get('phone_number') as string).trim();
   const email        = (formData.get('email')        as string).trim();
   const password     = formData.get('password')      as string;
-  const invite_code  = (formData.get('invite_code')  as string).trim().toUpperCase();
+  // Aggressive sanitization: collapse all whitespace and non-alphanumeric chars, uppercase.
+  // e.g. "but 2025" → "BUT2025", "BUDBIKE 2025" → "BUDBIKE2025"
+  const invite_code  = (formData.get('invite_code') as string)
+    .replace(/\s+/g, '')        // remove all whitespace
+    .replace(/[^A-Za-z0-9]/g, '') // remove non-alphanumeric
+    .toUpperCase();
 
   if (!full_name || !phone_number || !email || !password || !invite_code) {
     return { success: false, error: 'All fields are required.' };

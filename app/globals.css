@@ -128,3 +128,24 @@
     @apply font-sans;
   }
 }
+
+/* ── Infinite marquee animations for MetricTicker ───────────────────────── */
+@keyframes ticker-left {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes ticker-right {
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+.animate-ticker-left {
+  animation: ticker-left 28s linear infinite;
+}
+.animate-ticker-right {
+  animation: ticker-right 32s linear infinite;
+}
+/* Pause on hover for accessibility */
+.ticker-track:hover .animate-ticker-left,
+.ticker-track:hover .animate-ticker-right {
+  animation-play-state: paused;
+}
