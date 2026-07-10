@@ -1,36 +1,157 @@
 # System Architecture & Communication Map
 
 ## 1. Infrastructure Overview
-- **Hosting & Backend Serverless API:** Vercel (Next.js 15 App Router)
-- **Database, Auth, & File Storage:** Supabase Cloud (PostgreSQL)
-- **User Interface Platform:** Telegram Messenger (Bot API via Webhooks) [PENDING / NEXT STEPS]
-- **AI Processing Engine:** Google Gemini API (via Vercel AI SDK)
 
-## 2. Multi-Tenant Auth & Database Architecture
-- **Tenant Group Isolation:**
-  - The `groups` table stores isolated batches of users (e.g., 'Budbikers', '5monkeys') identified by a unique `invite_code`.
-  - The `profiles` table references a user's authenticated Supabase Auth ID and holds a foreign key to their specific group (`group_id`).
-- **Row-Level Security (RLS) Policies:**
-  - RLS is enabled on `profiles` and `metric_logs` to ensure multi-tenant security boundaries.
-  - Users are restricted to reading profiles and metric logs only from members belonging to their same group:
-    ```sql
-    -- profiles RLS select policy
-    group_id = (select group_id from public.profiles where id = auth.uid())
+| Layer | Technology |
+|---|---|
+| Hosting & Serverless API | Vercel (Next.js 15 App Router) |
+| Database, Auth, Storage | Supabase Cloud (PostgreSQL 15) |
+| Bot Ingestion Interface | Telegram Bot API via Webhooks |
+| AI Processing Engine | Google Gemini 2.0 Flash (via `@ai-sdk/google`) |
 
-    -- metric_logs RLS select policy
-    exists (
-      select 1 from public.profiles p
-      where p.id = metric_logs.user_id
-      and p.group_id = (select group_id from public.profiles where id = auth.uid())
-    )
-    ```
+---
 
-## 3. Data Ingestion Flow (Manual AI Pipeline)
-1. **User Action:** A user clicks "+ Add Activity" on the dashboard and inputs a natural language activity string (e.g., "I just ran 5 miles").
-2. **Server Action Dispatch:** Next.js Server Action (`ingestActivity`) is invoked.
-3. **Structured Extraction (AI):** The Server Action communicates with Google Gemini API (`gemini-2.0-flash` model via `@ai-sdk/google`) using a custom prompt requesting structured JSON output conforming to a validation schema:
-   - `{ metric_slug: string, value: number, unit: string }`
-4. **Data Verification & Ingestion:**
-   - The Server Action maps the extracted `metric_slug` to its corresponding `id` inside `metrics_config`.
-   - The verified metric data is stored as a new entry inside `metric_logs` mapping to the active `user_id`.
-   - XP progress triggers calculate rewards based on the configuration of the completed activity.
+## 2. Database Schema (v3 — Migration 0002)
+
+### Core Tables
+
+```
+groups            id (UUID PK), name, invite_code (UNIQUE)
+profiles          id (UUID PK → auth.users), full_name, avatar_url,
+                  total_xp, current_level, telegram_user_id (TEXT UNIQUE)
+group_members     user_id (→ profiles), group_id (→ groups),
+                  joined_at  │  PK: (user_id, group_id)  ← many-to-many
+```
+
+### Event Engine
+
+```
+metric_logs       id (UUID PK), user_id, group_id, metric_slug (TEXT),
+                  value (NUMERIC), unit (TEXT), status (pending|verified|rejected),
+                  evidence_url, logged_at
+```
+
+`metric_slug` is stored directly (e.g. `'deadlift'`, `'beers'`) rather than a FK
+into `metrics_config`. This allows the Telegram bot and AI pipeline to insert in
+one step without a secondary lookup. `metrics_config` is still used for XP reward
+lookup and display names.
+
+### Peer-Review Engine
+
+```
+log_votes         id (UUID PK), log_id (→ metric_logs), user_id (→ profiles),
+                  cast_at  │  UNIQUE(log_id, user_id) — prevents double-voting
+```
+
+**Auto-verify trigger** (`trg_auto_verify`): fires `AFTER INSERT` on `log_votes`.
+When `count(votes for log_id) >= 3`, the trigger flips `metric_logs.status →
+'verified'`, which in turn fires the XP award trigger.
+
+**XP trigger** (`trg_award_xp_v2`): fires `AFTER UPDATE OF status` on
+`metric_logs`. Looks up `xp_reward` from `metrics_config` by slug; defaults to
+25 XP for unknown slugs. Updates `total_xp` and recomputes `current_level` on the
+author's profile row atomically.
+
+---
+
+## 3. Multi-Tenant Isolation (Many-to-Many)
+
+A user can belong to **multiple groups simultaneously** via `group_members`.
+
+### RLS Isolation Predicate
+
+A security-definer helper function `shares_group_with_caller(target_user_id)` is
+used as the core isolation predicate:
+
+```sql
+-- Returns true if caller and target share at least one group
+select exists (
+  select 1
+    from group_members a
+    join group_members b on a.group_id = b.group_id
+   where a.user_id = auth.uid()
+     and b.user_id = target_user_id
+);
+```
+
+### RLS Policy Summary
+
+| Table | SELECT | INSERT |
+|---|---|---|
+| `groups` | group_id in caller's memberships | — |
+| `group_members` | same group_id as caller | own user_id only |
+| `profiles` | own row OR shares_group_with_caller() | own user_id only |
+| `metric_logs` | group_id in caller's memberships | own user_id + valid group_id |
+| `log_votes` | log's group_id in caller's memberships | share group + NOT own log |
+
+The `log_votes` INSERT policy enforces **no self-voting at the database level** —
+a separate application-layer check is unnecessary.
+
+---
+
+## 4. Dynamic Query Engine (`lib/queries.ts`)
+
+All dashboard data flows through typed server-side utility functions. The key function:
+
+```typescript
+getDashboardData(supabase, groupId, metricSlug?, days?, limit?)
+```
+
+- Applies **two isolation fences**: explicit `group_id` parameter (index scan) + RLS
+- Appends `.eq('metric_slug', metricSlug)` only when a slug is provided (no SQL injection risk — Supabase JS uses parameterized queries)
+- Joins `profiles` via `!inner` for author name + avatar
+- Aggregates KPI stats server-side — no raw arrays serialized to the browser
+
+Supporting functions:
+- `getGroupIdForUser(supabase, userId)` — resolves primary group for a user
+- `getPendingLogsForGroup(supabase, groupId, callerId)` — peer-review queue (excludes caller's own logs)
+
+---
+
+## 5. Data Ingestion Paths
+
+### Path A — Manual (Dashboard Modal)
+
+1. User clicks `+ Add Activity` → shadcn Dialog opens
+2. Raw text submitted → Next.js Server Action (`ingestActivity`)
+3. `generateText` (Gemini) + manual JSON parse → `{ metric_slug, value, unit }`
+4. Insert into `metric_logs` with `status: 'pending'`
+5. Peer-review votes accumulate → auto-verify trigger fires at 3 votes
+
+### Path B — Telegram Bot Webhook (`/api/telegram`)
+
+1. User sends message to Telegram bot
+2. Telegram calls `POST /api/telegram` with `X-Telegram-Bot-Api-Secret-Token` header
+3. Route verifies header against `TELEGRAM_WEBHOOK_SECRET` env var — rejects otherwise
+4. `telegram_user_id` (from Telegram payload) → profile lookup → group_id resolution
+5. **AI Extraction (Anti-Injection)**:
+   - `generateObject` (Gemini) with strict Zod schema `{ metric_slug, value, unit }`
+   - Hard system prompt explicitly forbids roleplay, jailbreaks, and non-extraction tasks
+   - Model cannot output anything outside the Zod schema shape
+6. Parameterized Supabase JS insert — no raw SQL, no string concatenation
+7. `status: 'pending'` → enters peer-review queue
+8. Unknown users receive silent 200 OK (prevents user enumeration)
+
+### Security Layers Summary
+
+| Threat | Mitigation |
+|---|---|
+| Unauthorized webhook calls | `X-Telegram-Bot-Api-Secret-Token` header check |
+| Prompt injection via Telegram message | Hard system prompt + `generateObject` Zod schema |
+| SQL injection | Supabase JS parameterized methods only |
+| User enumeration | Silent 200 OK for unknown telegram_user_id |
+| Cross-group data leakage | RLS double-fence (explicit group_id + Postgres policy) |
+| Self-vote abuse | `log_votes` INSERT policy: `ml.user_id <> auth.uid()` |
+| Double-voting | `UNIQUE(log_id, user_id)` constraint on `log_votes` |
+
+---
+
+## 6. Environment Variables Required
+
+| Variable | Where Used |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Client + server Supabase client |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Client Supabase client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Telegram webhook (service-role, server-only) |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | `@ai-sdk/google` auto-detection |
+| `TELEGRAM_WEBHOOK_SECRET` | Webhook route secret token verification |
