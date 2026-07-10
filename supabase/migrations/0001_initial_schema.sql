@@ -220,6 +220,70 @@ as $$
   );
 $$;
 
+-- ---------------------------------------------------------------------------
+-- UNIQUE CONSTRAINTS & VAL TRIGGER: enforce pin uniqueness per group_id
+-- ---------------------------------------------------------------------------
+-- Drop pin unique constraint if it exists on profiles
+alter table public.profiles drop constraint if exists profiles_pin_key;
+
+-- Add unique constraint on profiles email
+alter table public.profiles drop constraint if exists profiles_email_key;
+alter table public.profiles add constraint profiles_email_key unique (email);
+
+-- Trigger function checking that a PIN is unique per group_id on group_members update/insert
+create or replace function public.check_unique_pin_per_group()
+returns trigger
+language plpgsql
+as $$
+begin
+  if exists (
+    select 1
+      from public.group_members gm1
+      join public.profiles p1 on gm1.user_id = p1.id
+      join public.group_members gm2 on gm1.group_id = gm2.group_id
+     where gm2.user_id = new.user_id
+       and p1.pin = (select pin from public.profiles where id = new.user_id)
+       and p1.id <> new.user_id
+  ) then
+    raise exception 'This PIN is already taken in this group.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_check_unique_pin_per_group on public.group_members;
+create trigger trg_check_unique_pin_per_group
+  after insert or update on public.group_members
+  for each row
+  execute function public.check_unique_pin_per_group();
+
+-- Trigger function checking that a PIN is unique per group_id when profiles.pin is changed
+create or replace function public.check_unique_pin_on_profile_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  if exists (
+    select 1
+      from public.group_members gm1
+      join public.profiles p1 on gm1.user_id = p1.id
+      join public.group_members gm2 on gm1.group_id = gm2.group_id
+     where gm1.user_id = new.id
+       and p1.pin = new.pin
+       and p1.id <> new.id
+  ) then
+    raise exception 'This PIN is already taken in this group.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_check_unique_pin_on_profile_update on public.profiles;
+create trigger trg_check_unique_pin_on_profile_update
+  after insert or update of pin on public.profiles
+  for each row
+  execute function public.check_unique_pin_on_profile_update();
+
 -- ===========================================================================
 -- ROW LEVEL SECURITY — Kiosk Model
 -- ===========================================================================
@@ -253,6 +317,13 @@ create policy "group_members: anon can read"
   to anon
   using (true);
 
+-- Allow anonymous users to insert group membership during signup
+drop policy if exists "group_members: anon can insert" on public.group_members;
+create policy "group_members: anon can insert"
+  on public.group_members for insert
+  to anon
+  with check (true);
+
 -- ── profiles ─────────────────────────────────────────────────────────────────
 alter table public.profiles enable row level security;
 
@@ -263,6 +334,13 @@ create policy "profiles: anon can read"
   on public.profiles for select
   to anon
   using (true);
+
+-- Allow anonymous users to insert profiles during signup
+drop policy if exists "profiles: anon can insert" on public.profiles;
+create policy "profiles: anon can insert"
+  on public.profiles for insert
+  to anon
+  with check (true);
 
 -- ── metrics_config ───────────────────────────────────────────────────────────
 alter table public.metrics_config enable row level security;

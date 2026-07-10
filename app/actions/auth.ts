@@ -230,7 +230,9 @@ export async function signUpAction(
       .single();
 
     if (profileError || !newProfile) {
-      console.error('[signUpAction] Profile creation failed:', profileError);
+      if (profileError) {
+        console.error("SIGNUP CRASH:", profileError.message, profileError.details, profileError.code);
+      }
       return { success: false, error: 'Failed to create user profile. The PIN/email may already be registered.' };
     }
 
@@ -243,7 +245,7 @@ export async function signUpAction(
       });
 
     if (memberError) {
-      console.error('[signUpAction] Group membership link failed:', memberError);
+      console.error("SIGNUP CRASH:", memberError.message, memberError.details, memberError.code);
       // Clean up the created profile to prevent orphaned profiles
       await supabase.from('profiles').delete().eq('id', newProfile.id);
       return { success: false, error: 'Failed to link user to the group.' };
