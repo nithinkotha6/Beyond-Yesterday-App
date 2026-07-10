@@ -4,6 +4,12 @@
 -- This is the final state of all 4 migration files combined and resolved.
 -- =============================================================================
 
+-- Ensure correct schema permissions (crucial if public schema was dropped/recreated)
+grant usage on schema public to postgres, anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to postgres, anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to postgres, anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to postgres, anon, authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Extensions
 -- ---------------------------------------------------------------------------
@@ -305,3 +311,9 @@ insert into public.metrics_config (slug, display_name, unit, sort_order, xp_rewa
   ('longest_swim',      'Longest Swim',      'm',       'desc', 45),
   ('sleep',             'Sleep',             'hrs',     'desc', 15),
   ('5k_time',           '5K Time',           'min',     'asc',  55);
+
+-- Explicitly grant privileges to avoid RLS/permission issues on newly created tables
+grant all privileges on all tables in schema public to postgres, anon, authenticated, service_role;
+grant all privileges on all sequences in schema public to postgres, anon, authenticated, service_role;
+grant all privileges on all functions in schema public to postgres, anon, authenticated, service_role;
+

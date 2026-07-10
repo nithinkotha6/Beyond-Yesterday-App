@@ -51,7 +51,7 @@ export default function LandingPage() {
         if (cancelled) return;
 
         if (error) {
-          console.error('[LandingPage] getGroupsAction returned query error:', error);
+          console.error("CRITICAL SUPABASE ERROR:", error);
           setLoadError('Failed to load groups. Check database connection.');
           setLoading(false);
           return;
@@ -65,7 +65,7 @@ export default function LandingPage() {
         }
       } catch (err: any) {
         if (cancelled) return;
-        console.error('[LandingPage] Error in fetchGroups:', err);
+        console.error("CRITICAL SUPABASE ERROR:", err);
         setLoadError('Failed to load groups. Check database connection.');
       } finally {
         if (!cancelled) {

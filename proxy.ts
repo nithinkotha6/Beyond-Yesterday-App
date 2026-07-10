@@ -1,10 +1,10 @@
 /**
- * middleware.ts — Next.js Edge Middleware for Kiosk Auth route protection.
+ * proxy.ts — Next.js 16 Request Proxy/Interception Boundary.
+ * Replaces the deprecated middleware.ts file convention.
  *
  * Guards all /dashboard routes. If the `app_session` cookie is absent or
  * cannot be decoded (expired, tampered), the user is redirected to /.
  *
- * Runs on the Edge runtime — jose works natively there (no Node.js APIs needed).
  * Spec: architecture.md §7
  */
 
@@ -19,7 +19,7 @@ function getSecret(): Uint8Array | null {
   return new TextEncoder().encode(raw);
 }
 
-export async function middleware(req: NextRequest): Promise<NextResponse> {
+export async function proxy(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
   // Only guard dashboard routes (including sub-paths)
