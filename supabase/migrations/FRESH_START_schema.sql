@@ -18,24 +18,28 @@ create extension if not exists "uuid-ossp";
 -- ---------------------------------------------------------------------------
 -- TABLE: groups
 -- Each group is an isolated batch (e.g. 'Texasbuds', 'Budbikers').
+-- invite_code is used by signups to join the group.
 -- ---------------------------------------------------------------------------
 create table public.groups (
   id          uuid        primary key default uuid_generate_v4(),
   name        text        not null,
+  invite_code text        unique,
   created_at  timestamptz not null default now()
 );
 
 -- ---------------------------------------------------------------------------
 -- TABLE: profiles
 -- One row per group member. id is a plain UUID — NOT tied to auth.users.
--- The kiosk model does NOT use Supabase Auth. Members are created by an admin.
--- The admin inserts a row here + a row in group_members to add someone.
+-- The kiosk model does NOT use Supabase Auth. Members are created by an admin
+-- or via the self-signup flow on the landing page.
 -- telegram_user_id links this profile to a Telegram account for bot ingestion.
 -- total_xp and current_level are managed automatically by the XP trigger.
 -- ---------------------------------------------------------------------------
 create table public.profiles (
   id                uuid        primary key default uuid_generate_v4(),
   full_name         text        not null,
+  nickname          text,        -- User nickname for dashboard display
+  email             text,        -- User email
   pin               varchar(4),  -- 4-character personal PIN for 1-step login
   avatar_url        text,
   telegram_user_id  text        unique,

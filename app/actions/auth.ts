@@ -91,7 +91,7 @@ export async function loginWithPersonalPinAction(
       .select(`
         group_id,
         groups!inner ( name ),
-        profiles!inner ( id, full_name, pin )
+        profiles!inner ( id, full_name, nickname, pin )
       `)
       .eq('group_id', groupId)
       .eq('profiles.pin', sanitizedPin)
@@ -105,14 +105,16 @@ export async function loginWithPersonalPinAction(
     const typedMember = member as unknown as {
       group_id: string;
       groups: { name: string };
-      profiles: { id: string; full_name: string; pin: string };
+      profiles: { id: string; full_name: string; nickname: string | null; pin: string };
     };
+
+    const displayName = typedMember.profiles.nickname || typedMember.profiles.full_name;
 
     const token = await encodeSession({
       userId: typedMember.profiles.id,
       groupId: typedMember.group_id,
       groupName: typedMember.groups.name,
-      userName: typedMember.profiles.full_name,
+      userName: displayName,
     });
 
     const cookieStore = await cookies();
@@ -120,7 +122,7 @@ export async function loginWithPersonalPinAction(
 
     return {
       success: true,
-      userName: typedMember.profiles.full_name,
+      userName: displayName,
       userId: typedMember.profiles.id,
       groupId: typedMember.group_id,
       groupName: typedMember.groups.name,
@@ -130,6 +132,107 @@ export async function loginWithPersonalPinAction(
     return { success: false, error: 'An error occurred during authentication.' };
   }
 }
+
+/* ── signUpAction ─────────────────────────────────────────────────────────── */
+
+export type SignUpResult =
+  | { success: true; userName: string; userId: string; groupId: string; groupName: string }
+  | { success: false; error: string };
+
+/**
+ * Signs up a new user using a group invite code, full name, nickname, email, and PIN.
+ * Automatically links the user to the group and logs them in.
+ */
+export async function signUpAction(
+  inviteCode: string,
+  fullName: string,
+  nickname: string,
+  email: string,
+  pin: string,
+): Promise<SignUpResult> {
+  if (!inviteCode || !fullName || !pin) {
+    return { success: false, error: 'Invite code, Full Name, and PIN are required.' };
+  }
+
+  const sanitizedPin = pin.replace(/\s/g, '').trim();
+  if (sanitizedPin.length !== 4) {
+    return { success: false, error: 'PIN must be exactly 4 digits.' };
+  }
+
+  const sanitizedInvite = inviteCode.trim();
+
+  try {
+    const supabase = await createClient();
+
+    // 1. Look up the group by invite_code
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .select('id, name')
+      .eq('invite_code', sanitizedInvite)
+      .single();
+
+    if (groupError || !group) {
+      console.error('[signUpAction] Group invite code lookup failed:', groupError);
+      return { success: false, error: 'Invalid group invite code.' };
+    }
+
+    // 2. Generate a new profile
+    const { data: newProfile, error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        full_name: fullName.trim(),
+        nickname: nickname.trim() || null,
+        email: email.trim() || null,
+        pin: sanitizedPin,
+      })
+      .select('id, full_name, nickname')
+      .single();
+
+    if (profileError || !newProfile) {
+      console.error('[signUpAction] Profile creation failed:', profileError);
+      return { success: false, error: 'Failed to create user profile. The PIN/email may already be registered.' };
+    }
+
+    // 3. Link them in the group_members table
+    const { error: memberError } = await supabase
+      .from('group_members')
+      .insert({
+        user_id: newProfile.id,
+        group_id: group.id,
+      });
+
+    if (memberError) {
+      console.error('[signUpAction] Group membership link failed:', memberError);
+      // Clean up the created profile to prevent orphaned profiles
+      await supabase.from('profiles').delete().eq('id', newProfile.id);
+      return { success: false, error: 'Failed to link user to the group.' };
+    }
+
+    // 4. Encode session and set the HTTP-only cookie
+    const displayName = newProfile.nickname || newProfile.full_name;
+    const token = await encodeSession({
+      userId: newProfile.id,
+      groupId: group.id,
+      groupName: group.name,
+      userName: displayName,
+    });
+
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
+
+    return {
+      success: true,
+      userName: displayName,
+      userId: newProfile.id,
+      groupId: group.id,
+      groupName: group.name,
+    };
+  } catch (err: any) {
+    console.error('[signUpAction] Caught exception:', err);
+    return { success: false, error: 'An unexpected error occurred during signup.' };
+  }
+}
+
 
 /* ── selectProfileAction ─────────────────────────────────────────────────── */
 
