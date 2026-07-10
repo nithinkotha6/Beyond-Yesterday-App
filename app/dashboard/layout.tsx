@@ -1,27 +1,48 @@
-import { Suspense } from 'react';
-import Sidebar from '@/components/Sidebar';
-import MobileBottomNav from '@/components/MobileBottomNav';
-import LiveAchievementTicker from '@/components/LiveAchievementTicker';
+import { Suspense }              from 'react';
+import { cookies }               from 'next/headers';
+import { redirect }              from 'next/navigation';
+import Sidebar                   from '@/components/Sidebar';
+import MobileBottomNav           from '@/components/MobileBottomNav';
+import LiveAchievementTicker     from '@/components/LiveAchievementTicker';
+import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 
 /**
- * Dashboard shell layout — responsive split-theme grid.
- * Desktop (md+): dark sidebar left + light main right.
- * Mobile (<md):  full-width main + fixed bottom nav.
- * Spec: frontend.md §1
+ * Dashboard shell layout — async Server Component.
+ * Reads the `app_session` cookie, decodes the session, and passes
+ * { userId, groupId, groupName, userName } to child pages and the Sidebar.
+ *
+ * The middleware already guarantees the cookie is present and valid by the
+ * time this layout runs — but we decode again here to get the typed payload.
+ * Spec: architecture.md §7, frontend.md §1
  */
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Decode the session cookie (middleware already verified it's valid)
+  const cookieStore = await cookies();
+  const token       = cookieStore.get(SESSION_COOKIE)?.value;
+  const session     = token ? await decodeSession(token) : null;
+
+  // Safety net — should never happen if middleware is correctly configured
+  if (!session) redirect('/');
+
   return (
     <div className="flex h-full min-h-screen">
-      {/* Sidebar — hidden below md, rendered by CSS not JS */}
-      <Sidebar />
+      {/* Sidebar — receives live session data */}
+      <Sidebar
+        userName={session.userName}
+        groupName={session.groupName}
+        userId={session.userId}
+      />
 
-      {/* Light main content — pb-16 on mobile to clear the fixed bottom nav */}
+      {/* Light main content — pb-16 on mobile to clear fixed bottom nav */}
       <main
         className="flex-1 bg-[#F7F8FA] min-w-0 overflow-y-auto pb-16 md:pb-0 flex flex-col"
         id="main-content"
       >
-        {/* ── Live Achievement Ticker — full-bleed dark top bar ────── */}
-        {/* Suspense boundary: layout stays interactive while ticker loads */}
+        {/* Live Achievement Ticker — full-bleed dark top bar */}
         <Suspense
           fallback={
             <div className="w-full h-9 bg-[#0A0A0A] border-b border-white/5 flex items-center px-3">
@@ -31,14 +52,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           }
         >
-          <LiveAchievementTicker />
+          {/* Pass groupId so ticker only shows logs from this group */}
+          <LiveAchievementTicker groupId={session.groupId} />
         </Suspense>
 
-        {/* Page-specific content */}
+        {/* Page-specific content — session passed via searchParams or server context */}
         {children}
       </main>
 
-      {/* Mobile bottom navigation — rendered as client component */}
       <MobileBottomNav />
     </div>
   );

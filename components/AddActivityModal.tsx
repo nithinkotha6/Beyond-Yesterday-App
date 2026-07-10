@@ -13,11 +13,15 @@ import { ingestActivity, type IngestResult } from '@/app/actions/ingest';
 
 /**
  * "Add Activity" button + modal.
- * Clicking the black button opens a shadcn Dialog.
- * The user types natural language; a Server Action calls Gemini → Supabase.
- * Spec: Features.md §6 (The XP Engine / ingestion loop), architecture.md §2
+ * userId and groupId come from the HTTP-only session cookie (via dashboard page).
+ * Spec: Features.md §6, architecture.md §7
  */
-export default function AddActivityModal() {
+interface AddActivityModalProps {
+  userId:  string;
+  groupId: string;
+}
+
+export default function AddActivityModal({ userId, groupId }: AddActivityModalProps) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [result, setResult] = useState<IngestResult | null>(null);
@@ -38,7 +42,7 @@ export default function AddActivityModal() {
     e.preventDefault();
     setResult(null);
     startTransition(async () => {
-      const res = await ingestActivity(text);
+      const res = await ingestActivity(text, userId, groupId);
       setResult(res);
       if (res.success) {
         // Auto-close after a brief success display

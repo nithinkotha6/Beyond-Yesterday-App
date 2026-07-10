@@ -18,15 +18,16 @@ import { createClient } from '@/lib/supabase/server';
 
 type LogRow = {
   value: number;
+  metric_slug: string; // v2 schema: stored directly on the row
+  unit: string;
   profiles: { full_name: string | null } | null;
-  metrics_config: { slug: string; display_name: string; unit: string } | null;
 };
 
 function formatAchievement(log: LogRow): string {
   const name = log.profiles?.full_name?.split(' ')[0] ?? 'Someone';
   const val  = Number(log.value);
-  const slug = log.metrics_config?.slug ?? '';
-  const unit = log.metrics_config?.unit ?? '';
+  const slug = log.metric_slug ?? '';
+  const unit = log.unit ?? '';
 
   switch (slug) {
     // ── drinks / fun ────────────────────────────────────────────────
@@ -97,7 +98,7 @@ function formatAchievement(log: LogRow): string {
 
     // ── generic fallback ────────────────────────────────────────────
     default: {
-      const display = log.metrics_config?.display_name ?? 'an activity';
+      const display = slug.replace(/_/g, ' ');
       return `${name} logged ${val} ${unit} of ${display} 🏆`;
     }
   }
@@ -112,19 +113,21 @@ function Separator() {
   );
 }
 
-/* ── Main component ─────────────────────────────────────────────────────── */
-export default async function LiveAchievementTicker() {
+/* ── Main component ──────────────────────────────────────────────────── */
+export default async function LiveAchievementTicker({ groupId }: { groupId: string }) {
   const supabase = await createClient();
 
-  // Fetch 15 most recent verified logs.
-  // RLS automatically filters to the caller's group — no extra .eq() needed.
+  // Fetch 15 most recent verified logs scoped to this group.
+  // groupId is explicit (index scan) + RLS double-fences the result.
   const { data: logs } = await supabase
     .from('metric_logs')
     .select(`
       value,
-      profiles!inner ( full_name ),
-      metrics_config!inner ( slug, display_name, unit )
+      metric_slug,
+      unit,
+      profiles!inner ( full_name )
     `)
+    .eq('group_id', groupId)
     .eq('status', 'verified')
     .order('logged_at', { ascending: false })
     .limit(15);

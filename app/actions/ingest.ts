@@ -1,23 +1,24 @@
 'use server';
 
 import { google } from '@ai-sdk/google';
-import { z } from 'zod';
+import { z }      from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 /**
- * The shape Gemini must return — maps directly to a metric_logs INSERT.
- * Spec: .claude/rules/database.md §1 (EAV pattern).
+ * Zod schema for Gemini structured extraction.
+ * v2 schema: metric_slug stored directly on the log row.
+ * Spec: architecture.md §5 (Manual Ingestion Path)
  */
 const MetricSchema = z.object({
   metric_slug: z
-    .enum(['long_run', 'deadlift', 'top_speed', 'weight', 'calories'])
-    .describe('Which metric this activity belongs to'),
+    .string()
+    .describe('Snake_case metric identifier, e.g. long_run, deadlift, beers'),
   value: z
     .number()
     .describe('The numeric value extracted from the text'),
   unit: z
     .string()
-    .describe('Unit of measurement, e.g. miles, kg, mph, lbs, kcal'),
+    .describe('Unit of measurement, e.g. miles, kg, mph, lbs, kcal, reps'),
 });
 
 export type IngestResult =
@@ -26,39 +27,45 @@ export type IngestResult =
 
 /**
  * Server Action: parse natural language → Gemini structured JSON → Supabase INSERT.
- * Architecture: Features.md §6, architecture.md §2 steps 3 & 5.
+ * userId and groupId come from the HTTP-only session cookie (passed from dashboard).
+ * No Supabase Auth lookup needed — Kiosk model passes identity from the cookie.
  *
- * Usage: called from AddActivityModal ('use client').
+ * Spec: architecture.md §5 (Manual ingestion path), §7 (Kiosk auth)
  */
-export async function ingestActivity(rawText: string): Promise<IngestResult> {
+export async function ingestActivity(
+  rawText: string,
+  userId: string,
+  groupId: string,
+): Promise<IngestResult> {
   if (!rawText.trim()) {
     return { success: false, error: 'Please enter a description of your activity.' };
   }
+  if (!userId || !groupId) {
+    return { success: false, error: 'Session expired. Please return to the home screen.' };
+  }
 
-  // ── 1. Structured extraction via Gemini ───────────────────────────────────
-  // Using generateText + manual parse is more reliable across key types than
-  // generateObject (which requires tool-calling mode support).
+  // ── 1. Structured extraction via Gemini ──────────────────────────────────
   let extracted: z.infer<typeof MetricSchema>;
   try {
     const { generateText } = await import('ai');
     const { text } = await generateText({
       model: google('gemini-2.0-flash'),
-      prompt: `You are a fitness data parser. Extract the metric from the user's text and return ONLY a raw JSON object with no markdown, no code fences.
+      prompt: `You are a fitness data parser. Extract the metric from the user's text and return ONLY a raw JSON object with no markdown, no code fences, no explanation.
 
 Required JSON shape:
 {
-  "metric_slug": one of ["long_run","deadlift","top_speed","weight","calories"],
+  "metric_slug": <snake_case string, e.g. "long_run", "deadlift", "beers", "top_speed", "calories", "weight", "push_ups", "pull_ups", "squat", "sleep", "cycling_distance", "longest_swim">,
   "value": <number>,
-  "unit": <string, e.g. "miles","kg","mph","lbs","kcal">
+  "unit": <string, e.g. "miles", "kg", "mph", "lbs", "kcal", "reps", "hrs">
 }
 
 User text: "${rawText}"`,
     });
 
-    // Strip any accidental markdown code fences Gemini might add
-    const cleaned = text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-    const parsed = JSON.parse(cleaned);
+    const cleaned   = text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    const parsed    = JSON.parse(cleaned);
     const validated = MetricSchema.safeParse(parsed);
+
     if (!validated.success) {
       const issues = validated.error.issues.map(i => i.message).join(', ');
       console.error('[ingest] Schema validation failed:', validated.error);
@@ -71,45 +78,17 @@ User text: "${rawText}"`,
     return { success: false, error: `AI error: ${msg}` };
   }
 
-
-  // ── 2. Resolve metric_id from metrics_config ──────────────────────────────
+  // ── 2. INSERT into metric_logs (v2 schema — metric_slug direct) ───────────
+  // status defaults to 'pending' → requires 3 peer votes to become 'verified'
   const supabase = await createClient();
 
-  const { data: metric, error: metricErr } = await supabase
-    .from('metrics_config')
-    .select('id')
-    .eq('slug', extracted.metric_slug)
-    .single();
-
-  if (metricErr || !metric) {
-    return { success: false, error: `Unknown metric type: ${extracted.metric_slug}` };
-  }
-
-  // ── 3. Get the current user ───────────────────────────────────────────────
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-
-  // For manual testing without auth, fall back to the first profile row.
-  let userId: string;
-  if (authErr || !user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .limit(1)
-      .single();
-    if (!profile) {
-      return { success: false, error: 'No user profile found. Please sign in.' };
-    }
-    userId = profile.id;
-  } else {
-    userId = user.id;
-  }
-
-  // ── 4. INSERT into metric_logs (status defaults to 'pending') ─────────────
   const { error: insertErr } = await supabase.from('metric_logs').insert({
-    user_id: userId,
-    metric_id: metric.id,
-    value: extracted.value,
-    status: 'pending',
+    user_id:     userId,
+    group_id:    groupId,
+    metric_slug: extracted.metric_slug,
+    value:       extracted.value,
+    unit:        extracted.unit,
+    status:      'pending',
   });
 
   if (insertErr) {
@@ -118,9 +97,9 @@ User text: "${rawText}"`,
   }
 
   return {
-    success: true,
+    success:     true,
     metric_slug: extracted.metric_slug,
-    value: extracted.value,
-    unit: extracted.unit,
+    value:       extracted.value,
+    unit:        extracted.unit,
   };
 }
