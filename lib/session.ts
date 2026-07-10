@@ -25,10 +25,14 @@ export type AppSession = {
 };
 
 function getSecret(): Uint8Array | null {
-  const raw = process.env.SESSION_SECRET;
+  let raw = process.env.SESSION_SECRET;
   if (!raw || raw.length < 32) {
-    console.error('[session] SESSION_SECRET is missing or too short (min 32 chars)');
-    return null;
+    if (process.env.NODE_ENV !== 'production') {
+      raw = 'default_fallback_session_secret_32_characters_long_minimum';
+    } else {
+      console.error('[session] SESSION_SECRET is missing or too short (min 32 chars)');
+      return null;
+    }
   }
   return new TextEncoder().encode(raw);
 }

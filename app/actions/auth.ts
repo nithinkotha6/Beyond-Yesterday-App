@@ -128,8 +128,8 @@ export async function loginWithPersonalPinAction(
       groupName: typedMember.groups.name,
     };
   } catch (err: any) {
-    console.error('[loginWithPersonalPinAction] Caught exception:', err);
-    return { success: false, error: 'An error occurred during authentication.' };
+    console.error("FINAL LOGIN CRASH:", err);
+    return { success: false, error: err?.message || JSON.stringify(err) || 'An error occurred during authentication.' };
   }
 }
 
@@ -271,8 +271,8 @@ export async function signUpAction(
       groupName: group.name,
     };
   } catch (err: any) {
-    console.error('[signUpAction] Caught exception:', err);
-    return { success: false, error: 'An unexpected error occurred during signup.' };
+    console.error("FINAL SIGNUP CRASH:", err);
+    return { success: false, error: err?.message || JSON.stringify(err) || 'An unexpected error occurred during signup.' };
   }
 }
 
