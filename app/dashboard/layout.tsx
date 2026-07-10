@@ -1,5 +1,7 @@
+import { Suspense } from 'react';
 import Sidebar from '@/components/Sidebar';
 import MobileBottomNav from '@/components/MobileBottomNav';
+import LiveAchievementTicker from '@/components/LiveAchievementTicker';
 
 /**
  * Dashboard shell layout — responsive split-theme grid.
@@ -15,9 +17,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Light main content — pb-16 on mobile to clear the fixed bottom nav */}
       <main
-        className="flex-1 bg-[#F7F8FA] min-w-0 overflow-y-auto pb-16 md:pb-0"
+        className="flex-1 bg-[#F7F8FA] min-w-0 overflow-y-auto pb-16 md:pb-0 flex flex-col"
         id="main-content"
       >
+        {/* ── Live Achievement Ticker — full-bleed dark top bar ────── */}
+        {/* Suspense boundary: layout stays interactive while ticker loads */}
+        <Suspense
+          fallback={
+            <div className="w-full h-9 bg-[#0A0A0A] border-b border-white/5 flex items-center px-3">
+              <span className="text-[10px] font-black text-[#CEFF00] tracking-[0.2em] uppercase animate-pulse">
+                LIVE
+              </span>
+            </div>
+          }
+        >
+          <LiveAchievementTicker />
+        </Suspense>
+
+        {/* Page-specific content */}
         {children}
       </main>
 

@@ -4,7 +4,6 @@ import AddActivityModal from '@/components/AddActivityModal';
 import MetricChart, { type ChartUser } from '@/components/MetricChart';
 import BreakingNewsFeed, { type FeedItem } from '@/components/BreakingNewsFeed';
 import KpiCards, { type KpiData } from '@/components/KpiCards';
-import MetricTicker from '@/components/MetricTicker';
 
 /**
  * Dashboard page — async Server Component.
@@ -165,11 +164,7 @@ export default async function DashboardPage() {
   });
 
   return (
-    <>
-      {/* ── Infinite Metric Ticker — full-bleed above page padding ─── */}
-      <MetricTicker />
-
-      <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8">
 
         {/* ── Page Header ─────────────────────────────────────────────── */}
         <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
@@ -246,6 +241,5 @@ export default async function DashboardPage() {
         <KpiCards data={kpiData} />
 
       </div>
-    </>
   );
 }
