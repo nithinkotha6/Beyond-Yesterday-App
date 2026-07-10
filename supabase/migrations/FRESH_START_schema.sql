@@ -1,0 +1,307 @@
+-- =============================================================================
+-- CONSOLIDATED FRESH SCHEMA — The Growth Club Dashboard
+-- Run this on a clean Supabase project (after dropping the public schema).
+-- This is the final state of all 4 migration files combined and resolved.
+-- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- Extensions
+-- ---------------------------------------------------------------------------
+create extension if not exists "uuid-ossp";
+
+-- ---------------------------------------------------------------------------
+-- TABLE: groups
+-- Each group is an isolated batch (e.g. 'Texasbuds', 'Budbikers').
+-- invite_code doubles as the 4-digit kiosk PIN.
+-- ---------------------------------------------------------------------------
+create table public.groups (
+  id          uuid        primary key default uuid_generate_v4(),
+  name        text        not null,
+  invite_code text        not null unique,
+  created_at  timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- TABLE: profiles
+-- One row per user. id mirrors the Supabase auth.users id.
+-- telegram_user_id is the lookup key for the Telegram bot webhook.
+-- total_xp and current_level are managed by the XP trigger.
+-- ---------------------------------------------------------------------------
+-- TABLE: profiles
+-- One row per group member. id is a plain UUID — NOT tied to auth.users.
+-- The kiosk model does NOT use Supabase Auth. Members are created by an admin.
+-- The admin inserts a row here + a row in group_members to add someone.
+-- telegram_user_id links this profile to a Telegram account for bot ingestion.
+-- total_xp and current_level are managed automatically by the XP trigger.
+-- ---------------------------------------------------------------------------
+create table public.profiles (
+  id                uuid        primary key default uuid_generate_v4(),
+  full_name         text        not null,
+  avatar_url        text,
+  telegram_user_id  text        unique,
+  total_xp          integer     not null default 0,
+  current_level     integer     not null default 1,
+  created_at        timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- TABLE: group_members
+-- Many-to-many: one user can belong to multiple groups.
+-- Composite PK prevents duplicate memberships.
+-- ---------------------------------------------------------------------------
+create table public.group_members (
+  user_id   uuid        not null references public.profiles (id) on delete cascade,
+  group_id  uuid        not null references public.groups   (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (user_id, group_id)
+);
+
+create index group_members_group_id_idx on public.group_members (group_id);
+
+-- ---------------------------------------------------------------------------
+-- TABLE: metrics_config
+-- Catalogue of all metric types. Adding a new metric = one INSERT here.
+-- xp_reward is the XP awarded when a log of this type gets verified.
+-- ---------------------------------------------------------------------------
+create type sort_order_enum as enum ('asc', 'desc');
+
+create table public.metrics_config (
+  id           uuid            primary key default uuid_generate_v4(),
+  slug         text            not null unique,
+  display_name text            not null,
+  unit         text            not null,
+  sort_order   sort_order_enum not null default 'desc',
+  xp_reward    integer         not null default 25,
+  created_at   timestamptz     not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- TABLE: metric_logs (v2 — slug-based, no metric_id FK)
+-- Each row = one user logging one value for one metric in one group.
+-- metric_slug is stored directly (no join required to insert).
+-- status lifecycle: pending → verified (via 3 votes) or rejected.
+-- ---------------------------------------------------------------------------
+create table public.metric_logs (
+  id           uuid        primary key default uuid_generate_v4(),
+  user_id      uuid        not null references public.profiles (id) on delete cascade,
+  group_id     uuid        not null references public.groups   (id) on delete cascade,
+  metric_slug  text        not null,
+  value        numeric     not null,
+  unit         text        not null default '',
+  status       text        not null default 'pending'
+                           check (status in ('pending', 'verified', 'rejected')),
+  evidence_url text,
+  logged_at    timestamptz not null default now()
+);
+
+create index metric_logs_group_id_idx    on public.metric_logs (group_id);
+create index metric_logs_user_id_idx     on public.metric_logs (user_id);
+create index metric_logs_metric_slug_idx on public.metric_logs (metric_slug);
+create index metric_logs_status_idx      on public.metric_logs (status);
+create index metric_logs_logged_at_idx   on public.metric_logs (logged_at desc);
+
+-- ---------------------------------------------------------------------------
+-- TABLE: log_votes — peer-review voting engine
+-- UNIQUE(log_id, user_id) prevents double-voting at the DB level.
+-- ---------------------------------------------------------------------------
+create table public.log_votes (
+  id      uuid        primary key default uuid_generate_v4(),
+  log_id  uuid        not null references public.metric_logs (id) on delete cascade,
+  user_id uuid        not null references public.profiles    (id) on delete cascade,
+  cast_at timestamptz not null default now(),
+  unique (log_id, user_id)
+);
+
+create index log_votes_log_id_idx on public.log_votes (log_id);
+
+-- ---------------------------------------------------------------------------
+-- TRIGGER: Auto-verify on 3 votes
+-- Fires AFTER INSERT on log_votes.
+-- When a log reaches 3 unique peer votes → flip status to 'verified'.
+-- This then fires the XP trigger below.
+-- ---------------------------------------------------------------------------
+create or replace function public.auto_verify_on_votes()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_vote_count integer;
+begin
+  select count(*)
+    into v_vote_count
+    from public.log_votes
+   where log_id = NEW.log_id;
+
+  if v_vote_count >= 3 then
+    update public.metric_logs
+       set status = 'verified'
+     where id = NEW.log_id
+       and status = 'pending';
+  end if;
+
+  return NEW;
+end;
+$$;
+
+create trigger trg_auto_verify
+  after insert on public.log_votes
+  for each row
+  execute function public.auto_verify_on_votes();
+
+-- ---------------------------------------------------------------------------
+-- TRIGGER: Award XP when a log is verified
+-- Fires AFTER UPDATE OF status on metric_logs.
+-- Looks up xp_reward from metrics_config by slug; falls back to 25 XP.
+-- Level formula: floor(1 + sqrt(total_xp / 500)) + 1
+-- ---------------------------------------------------------------------------
+create or replace function public.award_xp_on_verify()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_xp integer := 25;
+begin
+  if OLD.status <> 'verified' and NEW.status = 'verified' then
+
+    select coalesce(xp_reward, 25)
+      into v_xp
+      from public.metrics_config
+     where slug = NEW.metric_slug
+     limit 1;
+
+    update public.profiles
+       set total_xp      = total_xp + v_xp,
+           current_level = floor(1 + sqrt((total_xp + v_xp)::float / 500)) + 1
+     where id = NEW.user_id;
+
+  end if;
+  return NEW;
+end;
+$$;
+
+create trigger trg_award_xp
+  after update of status on public.metric_logs
+  for each row
+  execute function public.award_xp_on_verify();
+
+-- ---------------------------------------------------------------------------
+-- HELPER FUNCTION: shares_group_with_caller(target_user_id)
+-- Returns true if the caller and target share at least one group.
+-- Used as the core RLS isolation predicate.
+-- ---------------------------------------------------------------------------
+create or replace function public.shares_group_with_caller(target_user_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+      from public.group_members a
+      join public.group_members b on a.group_id = b.group_id
+     where a.user_id = auth.uid()
+       and b.user_id = target_user_id
+  );
+$$;
+
+-- ===========================================================================
+-- ROW LEVEL SECURITY — Kiosk Model
+-- ===========================================================================
+-- Architecture: There is NO Supabase Auth session in this app.
+-- The kiosk cookie contains { userId, groupId } — identity is enforced at
+-- the application layer (Next.js Server Actions + middleware).
+-- RLS here provides a secondary defence layer.
+--
+-- Read  → anon role (the Supabase anon key used by all server actions)
+-- Write → anon role (server actions pass explicit user/group IDs from cookie)
+-- Admin → service_role bypasses RLS for admin SQL operations
+-- ===========================================================================
+
+-- ── groups ──────────────────────────────────────────────────────────────────
+alter table public.groups enable row level security;
+
+-- Landing page needs to list all groups for the dropdown (no session exists).
+create policy "groups: anon can read"
+  on public.groups for select
+  to anon
+  using (true);
+
+-- ── group_members ────────────────────────────────────────────────────────────
+alter table public.group_members enable row level security;
+
+-- Server actions need to read group membership to resolve the group for a user.
+create policy "group_members: anon can read"
+  on public.group_members for select
+  to anon
+  using (true);
+
+-- ── profiles ─────────────────────────────────────────────────────────────────
+alter table public.profiles enable row level security;
+
+-- verifyPinAction reads profiles to show member cards on the landing page.
+-- getDashboardData reads profiles to show names on charts and the feed.
+create policy "profiles: anon can read"
+  on public.profiles for select
+  to anon
+  using (true);
+
+-- ── metrics_config ───────────────────────────────────────────────────────────
+alter table public.metrics_config enable row level security;
+
+create policy "metrics_config: anon can read"
+  on public.metrics_config for select
+  to anon
+  using (true);
+
+-- ── metric_logs ──────────────────────────────────────────────────────────────
+alter table public.metric_logs enable row level security;
+
+-- Dashboard reads logs; server actions insert logs via anon key + cookie session.
+create policy "metric_logs: anon can read"
+  on public.metric_logs for select
+  to anon
+  using (true);
+
+create policy "metric_logs: anon can insert"
+  on public.metric_logs for insert
+  to anon
+  with check (true);
+
+-- ── log_votes ────────────────────────────────────────────────────────────────
+alter table public.log_votes enable row level security;
+
+create policy "log_votes: anon can read"
+  on public.log_votes for select
+  to anon
+  using (true);
+
+create policy "log_votes: anon can insert"
+  on public.log_votes for insert
+  to anon
+  with check (true);
+
+
+
+-- ===========================================================================
+-- SEED DATA — metrics catalogue
+-- ===========================================================================
+insert into public.metrics_config (slug, display_name, unit, sort_order, xp_reward) values
+  ('long_run',          'Long Run',          'mi',      'desc', 50),
+  ('deadlift',          'Deadlift',          'lbs',     'desc', 75),
+  ('top_speed',         'Top Speed',         'mph',     'desc', 60),
+  ('weight',            'Weight',            'lbs',     'asc',  40),
+  ('calories',          'Calories',          'kcal',    'desc', 30),
+  ('beers',             'Beers',             'cans',    'desc', 10),
+  ('squat',             'Squat',             'lbs',     'desc', 60),
+  ('bench_press',       'Bench Press',       'lbs',     'desc', 60),
+  ('push_ups',          'Push-ups',          'reps',    'desc', 20),
+  ('pull_ups',          'Pull-ups',          'reps',    'desc', 25),
+  ('cycling_distance',  'Cycling Distance',  'mi',      'desc', 40),
+  ('longest_swim',      'Longest Swim',      'm',       'desc', 45),
+  ('sleep',             'Sleep',             'hrs',     'desc', 15),
+  ('5k_time',           '5K Time',           'min',     'asc',  55);
