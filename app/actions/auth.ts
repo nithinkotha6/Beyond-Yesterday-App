@@ -2,12 +2,29 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { createClient as createBaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import {
   encodeSession,
   SESSION_COOKIE,
   COOKIE_OPTIONS,
 } from '@/lib/session';
+
+// Helper to get an admin/service-role client if possible, fallback to anon client
+async function getAdminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  if (serviceKey) {
+    return createBaseClient(url, serviceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      }
+    });
+  }
+  // Fallback to standard client
+  return createClient();
+}
 
 /**
  * Server Actions for Kiosk Auth flow.
@@ -47,6 +64,7 @@ export async function getGroupsAction(): Promise<GetGroupsResult> {
     const { data, error } = await supabase
       .from('groups')
       .select('id, name')
+      .not('invite_code', 'is', null)
       .order('name', { ascending: true });
 
     if (error) {
@@ -83,7 +101,8 @@ export async function loginWithPersonalPinAction(
   const sanitizedPin = pin.replace(/\s/g, '').trim();
 
   try {
-    const supabase = await createClient();
+    console.log("LOGIN ATTEMPT:", { groupId, pin });
+    const supabase = await getAdminClient();
 
     // Query profiles in this group with the exact personal PIN
     const { data: member, error } = await supabase
@@ -128,8 +147,8 @@ export async function loginWithPersonalPinAction(
       groupName: typedMember.groups.name,
     };
   } catch (err: any) {
-    console.error("FINAL LOGIN CRASH:", err);
-    return { success: false, error: err?.message || JSON.stringify(err) || 'An error occurred during authentication.' };
+    console.error("LOGIN CRASH:", err);
+    return { success: false, error: err?.message || JSON.stringify(err) || 'Login failed' };
   }
 }
 
@@ -162,7 +181,7 @@ export async function signUpAction(
   const sanitizedInvite = inviteCode.trim();
 
   try {
-    const supabase = await createClient();
+    const supabase = await getAdminClient();
 
     // 1. Look up the group by invite_code
     const { data: group, error: groupError } = await supabase
