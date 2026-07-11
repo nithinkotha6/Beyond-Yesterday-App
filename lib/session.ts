@@ -27,8 +27,9 @@ export type AppSession = {
 function getSecret(): Uint8Array | null {
   let raw = process.env.SESSION_SECRET;
   if (!raw || raw.length < 32) {
-    if (process.env.NODE_ENV !== 'production') {
-      raw = 'default_fallback_session_secret_32_characters_long_minimum';
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+      console.warn('[session] Warning: SESSION_SECRET is missing or too short. Falling back to development-only secret.');
+      raw = 'default-dev-secret-do-not-use-in-prod-12345';
     } else {
       console.error('[session] SESSION_SECRET is missing or too short (min 32 chars)');
       return null;
