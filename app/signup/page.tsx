@@ -85,7 +85,7 @@ export default function SignupPage() {
                 placeholder="e.g. BUDBIKE2025"
                 required
                 disabled={isPending}
-                className="w-full rounded-xl border border-[#CEFF00]/30 bg-[#CEFF00]/5 px-4 py-3 text-sm text-[#CEFF00] placeholder:text-[#6B7280] font-mono tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/50 disabled:opacity-50 transition"
+                className="w-full rounded-xl border border-[#CEFF00]/30 bg-[#CEFF00]/5 px-4 py-3 text-base md:text-sm text-[#CEFF00] placeholder:text-[#6B7280] font-mono tracking-widest uppercase focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/50 disabled:opacity-50 transition-colors duration-150 ease-out"
               />
             </div>
 
@@ -100,7 +100,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={isPending}
-              className="mt-1 flex items-center justify-center gap-2 bg-[#CEFF00] text-[#0A0A0A] font-black rounded-xl px-4 py-3 text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              className="mt-1 flex items-center justify-center gap-2 bg-[#CEFF00] text-[#0A0A0A] font-black rounded-xl px-4 py-3 text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity min-h-[44px] cursor-pointer"
             >
               {isPending ? <><Loader2 size={15} className="animate-spin" /> Joining…</> : 'Join the Club'}
             </button>
@@ -132,7 +132,7 @@ function Field({
         placeholder={placeholder}
         required
         disabled={disabled}
-        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-[#6B7280] focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 transition"
+        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white placeholder:text-[#6B7280] focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 transition-colors duration-150 ease-out"
       />
     </div>
   );

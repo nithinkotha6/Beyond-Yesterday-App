@@ -73,9 +73,10 @@ export async function getGroupsAction(): Promise<GetGroupsResult> {
     }
 
     return { groups: (data ?? []) as Group[] };
-  } catch (err: any) {
+  } catch (err) {
     console.error('[getGroupsAction] catch block error:', err);
-    return { groups: [], error: err?.message || 'Failed to connect to database' };
+    const errorMsg = err instanceof Error ? err.message : 'Failed to connect to database';
+    return { groups: [], error: errorMsg };
   }
 }
 
@@ -120,10 +121,26 @@ export async function loginWithPersonalPinAction(
       return { success: false, error: 'Login failed. Please try again.' };
     }
 
+    type MemberRow = {
+      group_id: string;
+      profiles: {
+        id: string;
+        full_name: string | null;
+        nickname: string | null;
+        pin: string | null;
+      } | {
+        id: string;
+        full_name: string | null;
+        nickname: string | null;
+        pin: string | null;
+      }[] | null;
+    };
+
     // Filter in application code: find the member whose profile PIN matches
-    const match = (members ?? []).find((m: any) => {
+    const membersTyped = (members as unknown as MemberRow[]) ?? [];
+    const match = membersTyped.find((m) => {
       const profiles = Array.isArray(m.profiles) ? m.profiles : [m.profiles];
-      return profiles.some((p: any) => p?.pin === sanitizedPin);
+      return profiles.some((p) => p?.pin === sanitizedPin);
     });
 
     if (!match) {
@@ -132,7 +149,7 @@ export async function loginWithPersonalPinAction(
 
     // Extract the matched profile (handle both array and object shapes)
     const profilesArr = Array.isArray(match.profiles) ? match.profiles : [match.profiles];
-    const profile = profilesArr.find((p: any) => p?.pin === sanitizedPin);
+    const profile = profilesArr.find((p) => p?.pin === sanitizedPin);
 
     if (!profile) {
       return { success: false, error: 'Invalid PIN. Please try again.' };
@@ -150,7 +167,7 @@ export async function loginWithPersonalPinAction(
       return { success: false, error: 'Failed to load group info.' };
     }
 
-    const displayName = profile.nickname || profile.full_name;
+    const displayName = profile.nickname || profile.full_name || 'Athlete';
 
     const token = await encodeSession({
       userId:    profile.id,
@@ -169,9 +186,10 @@ export async function loginWithPersonalPinAction(
       groupId:   match.group_id,
       groupName: group.name,
     };
-  } catch (err: any) {
+  } catch (err) {
     console.error("LOGIN CRASH:", err);
-    return { success: false, error: err?.message || JSON.stringify(err) || 'Login failed' };
+    const msg = err instanceof Error ? err.message : 'Login failed';
+    return { success: false, error: msg };
   }
 }
 
@@ -230,25 +248,37 @@ export async function signUpAction(
       return { success: false, error: 'Failed to verify unique account.' };
     }
 
-    if (existingMembers && existingMembers.length > 0) {
-      const hasDuplicate = existingMembers.some((m: any) => {
+    type SignUpCheckMember = {
+      user_id: string;
+      profiles: {
+        full_name: string | null;
+        email: string | null;
+      } | {
+        full_name: string | null;
+        email: string | null;
+      }[] | null;
+    };
+
+    const existingTyped = (existingMembers as unknown as SignUpCheckMember[]) ?? [];
+    if (existingTyped.length > 0) {
+      const hasDuplicate = existingTyped.some((m) => {
         const rawProfiles = m.profiles;
         if (!rawProfiles) return false;
 
         const profilesList = Array.isArray(rawProfiles) ? rawProfiles : [rawProfiles];
 
-        return profilesList.some((p: any) => {
+        return profilesList.some((p) => {
           if (!p) return false;
 
           // Strictly compare trimmed lowercase names
           const dbName = p.full_name?.toLowerCase().trim();
           const inputName = fullName.toLowerCase().trim();
-          const nameMatch = dbName && inputName && dbName === inputName;
+          const nameMatch = !!(dbName && inputName && dbName === inputName);
 
           // Strictly compare trimmed lowercase emails only if both are set and non-empty
           const dbEmail = p.email?.toLowerCase().trim();
           const inputEmail = email?.toLowerCase().trim();
-          const emailMatch = dbEmail && inputEmail && dbEmail === inputEmail;
+          const emailMatch = !!(dbEmail && inputEmail && dbEmail === inputEmail);
 
           return nameMatch || emailMatch;
         });
@@ -312,9 +342,10 @@ export async function signUpAction(
       groupId: group.id,
       groupName: group.name,
     };
-  } catch (err: any) {
+  } catch (err) {
     console.error("FINAL SIGNUP CRASH:", err);
-    return { success: false, error: err?.message || JSON.stringify(err) || 'An unexpected error occurred during signup.' };
+    const msg = err instanceof Error ? err.message : 'An unexpected error occurred during signup.';
+    return { success: false, error: msg };
   }
 }
 

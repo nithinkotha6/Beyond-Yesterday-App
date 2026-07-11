@@ -19,7 +19,11 @@ Before writing a single line of new code, you must climb this ladder:
 You are blind to the overall system design unless you reference our explicit specifications. Before editing or generating any codebase files, you MUST consult and adhere to these architectural maps:
 - **Features Backlog & Scope:** Read `docs/Features.md` (Tracks the Nike-style UI layout, XP engine, and streams).
 - **System Architecture & Data Flows:** Read `docs/architecture.md` (Tracks Vercel, Supabase, and Telegram Webhooks).
-- **Database & Supabase Constraints:** Read `.claude/rules/database.md` (Tracks EAV patterns, schema definitions, and RLS).
-- **Frontend, Tailwind, & ECharts Layouts:** Read `.claude/rules/frontend.md` (Tracks Next.js Server Components and avatar charts).
+- **Database & Supabase Constraints:** Read `.claude/rules/database.md` (Tracks schema definitions, triggers, and RLS).
+- **Frontend, Tailwind, & ECharts Layouts:** Read `.claude/rules/frontend.md` (Tracks Next.js Server Components, client state, and ECharts styling).
 - **Telegram Hook Ingestion Logic:** Read `.claude/rules/telegram.md` (Tracks serverless webhook processing and Gemini AI extraction parsing).
-7. **Minimal Dev Logging:** If the user explicitly asks you to "log progress", you must create or append to a markdown file inside `docs/dev-log/`. The log must be extremely minimal: just the date, the step completed, and 1-2 bullet points of the exact files created/modified. NEVER write long, extensive log files. If not explicitly asked to log, do not write to this directory.
+
+## 💻 Common Commands
+- Development server: `npm run dev`
+- Production build: `npm run build`
+- Linting / validation: `npm run lint`

@@ -37,8 +37,8 @@ export default async function DashboardLayout({
     .eq('id', session.userId)
     .single();
 
-  const totalXp      = (profile as any)?.total_xp      ?? 0;
-  const currentLevel = (profile as any)?.current_level ?? 1;
+  const totalXp      = profile ? (profile.total_xp as number) : 0;
+  const currentLevel = profile ? (profile.current_level as number) : 1;
 
   return (
     <div className="flex h-full min-h-screen">
@@ -51,9 +51,9 @@ export default async function DashboardLayout({
         currentLevel={currentLevel}
       />
 
-      {/* Light main content — pb-16 on mobile to clear fixed bottom nav */}
+      {/* Light main content — pb-28 on mobile to clear fixed bottom nav + safe areas */}
       <main
-        className="flex-1 bg-[#F7F8FA] min-w-0 overflow-y-auto pb-16 md:pb-0 flex flex-col"
+        className="flex-1 bg-[#F7F8FA] min-w-0 overflow-y-auto pb-28 pb-safe md:pb-0 flex flex-col"
         id="main-content"
       >
         {/* Live Achievement Ticker — full-bleed dark top bar */}

@@ -100,7 +100,7 @@ export default function MetricChart({
   // Map userId -> offset amount in px
   const horizontalOffsets: Record<string, number> = {};
 
-  Object.entries(endpointGroups).forEach(([lastIdxStr, athletes]) => {
+  Object.values(endpointGroups).forEach((athletes) => {
     // Sort athletes by value descending
     athletes.sort((a, b) => b.value - a.value);
 
@@ -172,10 +172,11 @@ export default function MetricChart({
       textStyle: { color: '#111827', fontSize: 12 },
       confine: true,
       transitionDuration: 0.1,
-      formatter: (params: any[]) => {
-        const date = params[0]?.axisValue ?? '';
+      formatter: (params: unknown) => {
+        const list = params as { color?: string; seriesName?: string; value?: number | null; axisValue?: string }[];
+        const date = list[0]?.axisValue ?? '';
         // Sort athletes by value descending (highest score first)
-        const sortedParams = [...params]
+        const sortedParams = [...list]
           .filter((p) => p.value !== null && p.value !== undefined)
           .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 
@@ -280,7 +281,7 @@ export default function MetricChart({
                   onClick={() => {
                     setIsolatedUserId(prev => prev === s.userId ? null : s.userId);
                   }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all duration-200 cursor-pointer ${
+                  className={`flex items-center gap-2 px-3 rounded-full border text-xs font-bold transition-[transform,background-color] duration-150 ease-out cursor-pointer min-h-[44px] ${
                     isIsolated
                       ? 'bg-[#111827] text-white border-[#111827] shadow-sm scale-102'
                       : 'bg-[#F9FAFB] text-[#4B5563] border-[#E5E7EB] hover:bg-[#F3F4F6]'

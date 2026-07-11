@@ -47,12 +47,12 @@ export default function VoteButton({ logId, logOwnerId, voterId, hasVoted }: Vot
       <button
         onClick={handleVote}
         disabled={isPending}
-        className="flex items-center gap-1.5 bg-[#111827] text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center gap-1.5 bg-[#111827] text-white text-xs font-semibold px-4 py-2.5 rounded-xl hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px]"
       >
         {isPending ? (
-          <Loader2 size={11} className="animate-spin" />
+          <Loader2 size={12} className="animate-spin" />
         ) : (
-          <ThumbsUp size={11} />
+          <ThumbsUp size={12} />
         )}
         Verify
       </button>

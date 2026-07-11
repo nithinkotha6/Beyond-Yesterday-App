@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 type Particle = {
   id: number;
@@ -26,10 +26,8 @@ const COLORS = [
  * Animates colorful falling particles.
  */
 export default function Confetti() {
-  const [particles, setParticles] = useState<Particle[]>([]);
-
-  useEffect(() => {
-    const generated: Particle[] = Array.from({ length: 80 }).map((_, i) => {
+  const [particles] = useState<Particle[]>(() => {
+    return Array.from({ length: 80 }).map((_, i) => {
       const sizeNum = Math.floor(Math.random() * 10) + 6; // 6px to 16px
       const shapes: ('circle' | 'square' | 'triangle')[] = ['circle', 'square', 'triangle'];
       return {
@@ -42,8 +40,7 @@ export default function Confetti() {
         shape: shapes[Math.floor(Math.random() * shapes.length)],
       };
     });
-    setParticles(generated);
-  }, []);
+  });
 
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden" aria-hidden="true">

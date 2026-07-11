@@ -61,12 +61,45 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
     .eq('group_id', groupId)
     .eq('status', 'verified');
 
+  interface LeaderboardEntry {
+    profile: {
+      id: string;
+      full_name: string | null;
+      nickname: string | null;
+      avatar_url: string | null;
+      total_xp: number;
+      current_level: number;
+    };
+    score: number;
+    hasLogged: boolean;
+  }
+
+  type MemberProfile = {
+    profiles: {
+      id: string;
+      full_name: string | null;
+      nickname: string | null;
+      avatar_url: string | null;
+      total_xp: number;
+      current_level: number;
+    } | null;
+  };
+
+  type MetricLog = {
+    user_id: string;
+    value: number;
+    metric_slug: string;
+  };
+
+  const members = (membersRaw as unknown as MemberProfile[]) ?? [];
+  const logs = (logsRaw as unknown as MetricLog[]) ?? [];
+
   // ── In-Memory Aggregation ───────────────────────────────────────────────
-  const leaderboard = (membersRaw ?? []).map((m: any) => {
+  const leaderboard: LeaderboardEntry[] = members.map((m) => {
     const profile = m.profiles;
     if (!profile) return null;
 
-    const userLogs = (logsRaw ?? []).filter((l: any) => l.user_id === profile.id);
+    const userLogs = logs.filter((l) => l.user_id === profile.id);
 
     let score = 0;
     let hasLogged = false;
@@ -75,7 +108,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
       score = userLogs.length;
       hasLogged = score > 0;
     } else {
-      const metricLogs = userLogs.filter((l: any) => l.metric_slug === activeMetric);
+      const metricLogs = userLogs.filter((l) => l.metric_slug === activeMetric);
       hasLogged = metricLogs.length > 0;
 
       if (hasLogged) {
@@ -103,9 +136,9 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
       hasLogged,
     };
   })
-  .filter(Boolean)
+  .filter((entry): entry is LeaderboardEntry => entry !== null)
   // Sort strictly in descending order
-  .sort((a: any, b: any) => b.score - a.score);
+  .sort((a, b) => b.score - a.score);
 
   // Distribute into Podium and Table lists
   const podiumAthletes = leaderboard.slice(0, 3);
@@ -141,7 +174,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
               key={m.id}
               href={`/dashboard/leaderboard?metric=${m.id}`}
               id={`metric-pill-${m.id}`}
-              className={`px-4 py-2.5 rounded-full border text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
+              className={`px-4 rounded-full border text-xs font-bold whitespace-nowrap transition-[transform,background-color] duration-150 ease-out cursor-pointer min-h-[44px] flex items-center justify-center ${
                 isSelected
                   ? 'bg-[#111827] text-[#CEFF00] border-[#111827] shadow-sm scale-102'
                   : 'bg-white text-[#4B5563] border-[#E5E7EB] hover:bg-[#F9FAFB]'
@@ -261,7 +294,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F9FAFB] text-sm text-[#4B5563]">
-                {tableAthletes.map((athlete: any, index) => {
+                {tableAthletes.map((athlete: LeaderboardEntry, index) => {
                   const rank = index + 4;
                   return (
                     <tr key={athlete.profile.id} className="hover:bg-[#F9FAFB] transition-colors group">

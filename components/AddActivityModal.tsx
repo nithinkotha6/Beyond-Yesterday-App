@@ -57,7 +57,7 @@ export default function AddActivityModal({ userId, groupId }: AddActivityModalPr
       <button
         id="add-activity-btn"
         onClick={handleOpen}
-        className="flex items-center gap-1.5 bg-[#111827] text-white rounded-xl px-3 md:px-4 py-2.5 text-xs md:text-sm font-semibold hover:bg-black transition-colors"
+        className="flex items-center gap-1.5 bg-[#111827] text-white rounded-xl px-3 md:px-4 py-2.5 text-xs md:text-sm font-semibold hover:bg-black transition-colors min-h-[44px]"
       >
         <Plus size={14} strokeWidth={2.5} />
         <span className="hidden sm:inline">Add Activity</span>
@@ -85,7 +85,7 @@ export default function AddActivityModal({ userId, groupId }: AddActivityModalPr
               placeholder={`e.g. "I just ran 5 miles" or "Deadlifted 120kg today"`}
               rows={3}
               disabled={isPending}
-              className="w-full resize-none rounded-xl border border-[#E5E7EB] px-4 py-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#111827] disabled:opacity-50 transition"
+              className="w-full resize-none rounded-xl border border-[#E5E7EB] px-4 py-3 text-base md:text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#111827] disabled:opacity-50 transition"
             />
 
             {/* Result feedback */}
@@ -116,7 +116,7 @@ export default function AddActivityModal({ userId, groupId }: AddActivityModalPr
             <button
               type="submit"
               disabled={isPending || !text.trim()}
-              className="flex items-center justify-center gap-2 bg-[#111827] text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center justify-center gap-2 bg-[#111827] text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px]"
             >
               {isPending ? (
                 <>

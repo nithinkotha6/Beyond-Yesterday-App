@@ -105,7 +105,7 @@ export default function Sidebar({ userName, groupName, totalXp, currentLevel }: 
             aria-valuemax={100}
           >
             <div
-              className="h-full rounded-full bg-[#CEFF00] transition-all duration-700"
+              className="h-full rounded-full bg-[#CEFF00] transition-[width] duration-500 ease-out"
               style={{ width: `${xpBarPct}%` }}
             />
           </div>

@@ -51,7 +51,7 @@ export default function UserAvatar({ user, size = 'md', className = '', borderCo
 
   return (
     <div
-      className={`rounded-full flex-shrink-0 flex items-center justify-center font-black select-none overflow-hidden transition-all duration-300 ${sizeClass} ${
+      className={`rounded-full flex-shrink-0 flex items-center justify-center font-black select-none overflow-hidden transition-transform duration-200 ease-out ${sizeClass} ${
         isImageValid ? 'bg-zinc-800' : 'bg-gradient-to-br from-zinc-900 to-black text-[#CEFF00] border border-white/10'
       } ${className}`}
       style={borderStyles}

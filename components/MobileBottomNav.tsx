@@ -18,7 +18,7 @@ export default function MobileBottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0A0A0A] border-t border-white/10 flex items-center justify-around px-2 h-16 safe-area-pb"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0A0A0A] border-t border-white/10 flex items-center justify-around px-2 pb-safe min-h-[64px]"
       aria-label="Mobile navigation"
     >
       {ITEMS.map(({ icon: Icon, label, href }) => {
@@ -28,7 +28,7 @@ export default function MobileBottomNav() {
             key={label}
             href={href}
             aria-current={active ? 'page' : undefined}
-            className="flex flex-col items-center gap-1 flex-1 py-2 transition-colors cursor-pointer"
+            className="flex flex-col items-center justify-center gap-1 flex-1 h-14 transition-colors duration-150 ease-out cursor-pointer"
           >
             <Icon
               size={20}

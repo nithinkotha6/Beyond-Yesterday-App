@@ -34,11 +34,20 @@ export default async function CommunityPage() {
     `)
     .eq('group_id', groupId);
 
+  type Profile = {
+    id: string;
+    full_name: string | null;
+    nickname: string | null;
+    avatar_url: string | null;
+    total_xp: number;
+    current_level: number;
+  };
+
   // Extract profiles list sorted by total XP descending (leaderboard-like directory order)
   const roster = (membersRaw ?? [])
-    .map((m: any) => m.profiles)
-    .filter(Boolean)
-    .sort((a: any, b: any) => b.total_xp - a.total_xp);
+    .map((m) => m.profiles as unknown as Profile)
+    .filter((p): p is Profile => !!p)
+    .sort((a, b) => b.total_xp - a.total_xp);
 
   return (
     <div className="p-4 md:p-8 flex-1 flex flex-col bg-[#F7F8FA] min-w-0 overflow-y-auto">
@@ -59,11 +68,11 @@ export default async function CommunityPage() {
       {/* ── User Roster Grid ─────────────────────────────────────────── */}
       {roster.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
-          {roster.map((profile: any, index) => {
+          {roster.map((profile: Profile, index) => {
             return (
               <div
                 key={profile.id}
-                className="bg-white rounded-[24px] border border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-5 flex flex-col items-center text-center transition-all duration-300 hover:shadow-md hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
+                className="bg-white rounded-[24px] border border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-5 flex flex-col items-center text-center transition-[transform,box-shadow] duration-200 ease-out hover:shadow-md hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Large Centered Reusable UserAvatar */}

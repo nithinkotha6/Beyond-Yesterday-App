@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Growth Club — Kiosk Web Application
 
-## Getting Started
+Welcome to **The Growth Club**, a mobile-first workout tracking and competitive dashboard. Designed for fitness groups, teams, and families to track activities, view progress, and compete on dynamic leaderboards.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🚀 Shipped Core Features
+- **Strict Personal PIN Authentication:** One-step room selection and 4-digit PIN verification. Fully cookie-based session scoping (scraped via HTTP-only secure cookie `app_session`).
+- **Interactive Trend Charts:** Clean ECharts visual charts utilizing a TradingView/Robinhood stock-market UX aesthetic. Floating curves with strict null normalization to eliminate zero-plunges on rest days.
+- **Dynamic Leaderboards:** Multi-metric Olympic podium rankings (1st, 2nd, 3rd) and detailed scrollable rankings lists for other group members.
+- **Community Roster Grid:** Clean visual directory cards displaying group members, nicknames, current levels, and cumulative XP badges.
+- **Breaking News Feed:** Chronological natural language stream of recent activities decorated with initials-fallback `<UserAvatar />` badges.
+- **Natural Language Ingestion:** Manual workout logging via natural language processing (powered by Gemini AI parsing updates to metric slugs).
+
+---
+
+## 🛠️ Tech Stack
+- **Framework:** Next.js 15 (App Router, Turbopack)
+- **Styling:** Tailwind CSS & Vanilla CSS
+- **Database / Backend:** Supabase (PostgreSQL 15, Row Level Security, Triggers for automatic verification & XP calculations)
+- **AI Processing:** Google Gemini 2.0 Flash (via `@ai-sdk/google`)
+- **Data Visualization:** Apache ECharts (`echarts`, `echarts-for-react`)
+
+---
+
+## ⚙️ Environment Configuration
+
+Create a `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL="your-supabase-url"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
+SUPABASE_SERVICE_ROLE_KEY="your-secret-service-role-key"
+GOOGLE_GENERATIVE_AI_API_KEY="your-gemini-api-key"
+SESSION_SECRET="your-session-jwt-encryption-key-min-32-chars"
+TELEGRAM_WEBHOOK_SECRET="your-telegram-secret"
+TELEGRAM_BOT_TOKEN="your-telegram-token"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 💻 Local Development Workflow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Install dependencies:
+```bash
+npm install
+```
 
-## Learn More
+Run the development server (Next.js Turbopack):
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Build the application for production:
+```bash
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run linter / validation checks:
+```bash
+npm run lint
+```

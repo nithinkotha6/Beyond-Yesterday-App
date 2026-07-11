@@ -69,7 +69,7 @@ export default function LandingPage() {
         }
 
         setGroups(groups);
-      } catch (err: any) {
+      } catch (err) {
         if (cancelled) return;
         console.error("CRITICAL SUPABASE ERROR:", err);
         setLoadError('Failed to load groups. Check database connection.');
@@ -195,7 +195,7 @@ export default function LandingPage() {
             <button
               onClick={() => { setActiveTab('login'); setSignUpError(null); }}
               disabled={isPending}
-              className={`flex-1 py-2 text-xs font-black tracking-wider uppercase rounded-lg transition-all ${
+              className={`flex-1 py-2 text-xs font-black tracking-wider uppercase rounded-lg transition-[transform,background-color] duration-150 ease-out min-h-[44px] cursor-pointer ${
                 activeTab === 'login'
                   ? 'bg-[#CEFF00] text-black shadow-md'
                   : 'text-[#6B7280] hover:text-white bg-transparent'
@@ -212,7 +212,7 @@ export default function LandingPage() {
                 setLoginError(null);
               }}
               disabled={isPending}
-              className={`flex-1 py-2 text-xs font-black tracking-wider uppercase rounded-lg transition-all ${
+              className={`flex-1 py-2 text-xs font-black tracking-wider uppercase rounded-lg transition-[transform,background-color] duration-150 ease-out min-h-[44px] cursor-pointer ${
                 activeTab === 'signup'
                   ? 'bg-[#CEFF00] text-black shadow-md'
                   : 'text-[#6B7280] hover:text-white bg-transparent'
@@ -256,7 +256,7 @@ export default function LandingPage() {
                       }}
                       required
                       disabled={isPending || isLoadingGroups || !!loadError}
-                      className="w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition pr-10"
+                      className="w-full appearance-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition pr-10 min-h-[44px]"
                     >
                       <option value="" disabled className="bg-[#1A1A1A] text-[#6B7280]">
                         {isLoadingGroups ? 'Loading groups…' : 'Select your group'}
@@ -308,7 +308,7 @@ export default function LandingPage() {
                   id="login-btn"
                   type="submit"
                   disabled={isPending || !selectedGroup || loginPin.length < 4}
-                  className="mt-1 flex items-center justify-center gap-2 bg-[#CEFF00] text-[#0A0A0A] font-black rounded-xl px-4 py-3 text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                  className="mt-1 flex items-center justify-center gap-2 bg-[#CEFF00] text-[#0A0A0A] font-black rounded-xl px-4 py-3 text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity min-h-[44px] cursor-pointer"
                 >
                   {isPending ? (
                     <><Loader2 size={14} className="animate-spin" /> Entering Room…</>
@@ -341,7 +341,7 @@ export default function LandingPage() {
                     required
                     placeholder="e.g. TEXAS2025"
                     disabled={isPending}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
                   />
                 </div>
 
@@ -363,7 +363,7 @@ export default function LandingPage() {
                     required
                     placeholder="First and Last name"
                     disabled={isPending}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
                   />
                 </div>
 
@@ -378,7 +378,7 @@ export default function LandingPage() {
                     onChange={e => { setSignUpNickname(e.target.value); setSignUpError(null); }}
                     placeholder="Display name on charts"
                     disabled={isPending}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
                   />
                 </div>
 
@@ -393,7 +393,7 @@ export default function LandingPage() {
                     onChange={e => { setSignUpEmail(e.target.value); setSignUpError(null); }}
                     placeholder="your@email.com"
                     disabled={isPending}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
                   />
                 </div>
 

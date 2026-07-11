@@ -24,7 +24,6 @@ export default function DateRangeSelector({ activeRange }: DateRangeSelectorProp
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  const activeLabel = RANGE_OPTIONS.find((r) => r.value === activeRange)?.label ?? 'Last 7 Days';
 
   return (
     <div className="relative">
@@ -33,7 +32,7 @@ export default function DateRangeSelector({ activeRange }: DateRangeSelectorProp
         value={activeRange}
         onChange={(e) => setRange(e.target.value as RangeValue)}
         aria-label="Select date range"
-        className="appearance-none cursor-pointer flex items-center gap-2 bg-white border border-[#E5E7EB] rounded-xl pl-9 pr-8 py-2.5 text-xs md:text-sm font-medium text-[#111827] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#111827]/10"
+        className="appearance-none cursor-pointer flex items-center gap-2 bg-white border border-[#E5E7EB] rounded-xl pl-9 pr-8 py-2.5 text-base md:text-sm font-medium text-[#111827] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#111827]/10 min-h-[44px]"
       >
         {RANGE_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
