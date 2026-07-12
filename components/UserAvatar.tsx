@@ -8,7 +8,7 @@ interface UserAvatarProps {
     full_name?: string | null;
     nickname?: string | null;
   };
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  size?: 'sm' | 'md' | 'lg' | 'lg2' | 'xl' | '2xl' | '3xl';
   className?: string;
   borderColor?: string; // Optional custom border color for podium/leaderboard matching
 }
@@ -17,8 +17,10 @@ const SIZE_MAP = {
   sm:  'w-8 h-8 text-[11px]',
   md:  'w-9 h-9 text-[13px]',
   lg:  'w-10 h-10 text-[14px]',
+  lg2: 'w-12 h-12 text-[16px]',
   xl:  'w-16 h-16 text-[22px]',
   '2xl': 'w-20 h-20 text-[28px]',
+  '3xl': 'w-24 h-24 text-[32px]',
 };
 
 /**
