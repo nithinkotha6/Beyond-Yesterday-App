@@ -2,17 +2,17 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Newspaper } from 'lucide-react';
-import { castVoteAction } from '@/app/actions/vote';
+import { ChevronRight, Newspaper, Trash2, Check, X } from 'lucide-react';
+import { approveActivityAction, rejectActivityAction, deleteActivityAction } from '@/app/actions/vote';
 import UserAvatar from './UserAvatar';
 
 export type FeedItem = {
   id:          string | number;
   name:        string;        // display name (nickname ?? full_name)
   avatar_url?: string;
-  message:     string;        // NL sentence: "Nithin deadlifted 325 lbs 🔥"
+  message:     string;        // NL sentence
   relativeTime: string;       // "2h ago", "Yesterday", "Jul 4"
-  status:      'pending' | 'verified';
+  status:      'pending' | 'verified' | 'rejected';
   user_id:     string;        // log owner ID
   vote_count:  number;        // number of approvals
   hasVoted:    boolean;       // has the logged-in user approved?
@@ -24,68 +24,201 @@ interface BreakingNewsFeedProps {
 }
 
 /**
- * Real-time Breaking News feed — natural language activity messages with
- * relative timestamps, user avatars, and inline peer approval vote buttons.
+ * Real-time Breaking News feed — interactive scrollable ledger list
+ * with peer approvals, peer rejections, and author deletion options.
  */
 export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsFeedProps) {
-  const hasItems = items.length > 0;
+  const router = useRouter();
+  const [isPendingAction, startTransition] = useTransition();
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  
+  // Local state to track optimistic approvals
+  const [localApprovals, setLocalApprovals] = useState<Record<string, { count: number; approved: boolean }>>({});
+
+  const hideItem = (id: string) => {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(String(id));
+      return next;
+    });
+  };
+
+  const handleApprove = (logId: string | number, logOwnerId: string) => {
+    if (isPendingAction) return;
+
+    // Optimistic state
+    setLocalApprovals((prev) => ({
+      ...prev,
+      [logId]: {
+        count: (localApprovals[logId]?.count ?? items.find(i => i.id === logId)?.vote_count ?? 0) + 1,
+        approved: true,
+      }
+    }));
+
+    startTransition(async () => {
+      const res = await approveActivityAction(String(logId), currentUserId, logOwnerId);
+      if (res.success) {
+        router.refresh();
+      } else {
+        alert(res.error);
+        // Rollback optimistic state
+        setLocalApprovals((prev) => {
+          const next = { ...prev };
+          delete next[logId];
+          return next;
+        });
+      }
+    });
+  };
+
+  const handleReject = (logId: string | number) => {
+    if (isPendingAction) return;
+
+    // Optimistic hide
+    hideItem(String(logId));
+
+    startTransition(async () => {
+      const res = await rejectActivityAction(String(logId), currentUserId);
+      if (res.success) {
+        router.refresh();
+      } else {
+        alert(res.error);
+        // Restore/Rollback
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(String(logId));
+          return next;
+        });
+      }
+    });
+  };
+
+  const handleDelete = (logId: string | number) => {
+    if (isPendingAction) return;
+
+    // Optimistic hide
+    hideItem(String(logId));
+
+    startTransition(async () => {
+      const res = await deleteActivityAction(String(logId), currentUserId);
+      if (res.success) {
+        router.refresh();
+      } else {
+        alert(res.error);
+        // Restore/Rollback
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(String(logId));
+          return next;
+        });
+      }
+    });
+  };
+
+  const visibleItems = items.filter((item) => !hiddenIds.has(String(item.id)) && item.status !== 'rejected');
+  const hasItems = visibleItems.length > 0;
 
   return (
-    <div className="rounded-[24px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)] p-6 flex flex-col">
+    <div className="rounded-[24px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)] p-6 flex flex-col max-h-[640px]">
       <h2 className="text-base font-bold text-[#111827] mb-5">Breaking News</h2>
 
-      {hasItems ? (
-        <ul className="flex flex-col gap-4 flex-1" aria-label="Activity feed">
-          {items.map((item) => {
-            const isPending = item.status === 'pending';
+      {/* Constrained Vertically Scrollable Container */}
+      <div className="flex-1 max-h-[500px] overflow-y-auto pr-1 select-none scrollbar-thin">
+        {hasItems ? (
+          <ul className="flex flex-col gap-4" aria-label="Activity feed">
+            {visibleItems.map((item) => {
+              const isPending = item.status === 'pending';
+              const isOwner = item.user_id === currentUserId;
 
-            return (
-              <li key={item.id} className="flex items-start gap-3 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
-                {/* Reusable UserAvatar component */}
-                <UserAvatar
-                  user={{ avatar_url: item.avatar_url, full_name: item.name }}
-                  size="md"
-                />
+              // Read approval states merging local overrides
+              const approvedState = localApprovals[item.id] || {
+                count: item.vote_count,
+                approved: item.hasVoted,
+              };
 
-                {/* Text block */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] text-[#111827] leading-snug">
-                    {item.message}
-                  </p>
-                  
-                  {isPending && (
-                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide bg-[#FEF3C7] text-[#92400E] rounded-full px-2 py-0.5">
-                        ⏳ Pending
-                      </span>
-                      <InlineFeedVoteButton
-                        logId={item.id}
-                        logOwnerId={item.user_id}
-                        currentUserId={currentUserId}
-                        initialVoteCount={item.vote_count}
-                        initialHasVoted={item.hasVoted}
-                      />
+              return (
+                <li key={item.id} className="flex items-start gap-3 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
+                  {/* Reusable UserAvatar */}
+                  <UserAvatar
+                    user={{ avatar_url: item.avatar_url, full_name: item.name }}
+                    size="md"
+                  />
+
+                  {/* Log Card Body */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-[#111827] leading-snug">
+                      {item.message}
+                    </p>
+
+                    {/* Action buttons section */}
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      {isPending && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide bg-[#FEF3C7] text-[#92400E] rounded-full px-2 py-0.5 select-none">
+                          ⏳ Pending
+                        </span>
+                      )}
+
+                      {/* Display deletion options for authors */}
+                      {isOwner ? (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          disabled={isPendingAction}
+                          className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-full px-2.5 py-0.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
+                          type="button"
+                        >
+                          <Trash2 size={10} />
+                          Delete
+                        </button>
+                      ) : isPending ? (
+                        // Peer voting options
+                        approvedState.approved ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 select-none">
+                            ✅ Approved • {approvedState.count}/3
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleApprove(item.id, item.user_id)}
+                              disabled={isPendingAction}
+                              className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-full px-2.5 py-0.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
+                              type="button"
+                            >
+                              <Check size={10} strokeWidth={3} />
+                              Approve ({approvedState.count}/3)
+                            </button>
+                            <button
+                              onClick={() => handleReject(item.id)}
+                              disabled={isPendingAction}
+                              className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-full px-2.5 py-0.5 transition cursor-pointer active:scale-95 disabled:opacity-50"
+                              type="button"
+                            >
+                              <X size={10} strokeWidth={3} />
+                              Reject
+                            </button>
+                          </div>
+                        )
+                      ) : null}
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                {/* Relative time — right-aligned */}
-                <span className="text-[11px] text-[#9CA3AF] flex-shrink-0 tabular-nums mt-0.5">
-                  {item.relativeTime}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 py-10 text-center">
-          <Newspaper size={28} className="text-[#E5E7EB]" />
-          <p className="text-sm font-semibold text-[#9CA3AF]">No activity yet</p>
-          <p className="text-xs text-[#D1D5DB]">
-            Group news will appear here once someone logs an activity.
-          </p>
-        </div>
-      )}
+                  {/* Relative time */}
+                  <span className="text-[11px] text-[#9CA3AF] flex-shrink-0 tabular-nums mt-0.5">
+                    {item.relativeTime}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 py-12 text-center select-none">
+            <Newspaper size={28} className="text-[#E5E7EB]" />
+            <p className="text-sm font-semibold text-[#9CA3AF]">No activity yet</p>
+            <p className="text-xs text-[#D1D5DB]">
+              Group news will appear here once someone logs an activity.
+            </p>
+          </div>
+        )}
+      </div>
 
       <a
         href="#"
@@ -95,72 +228,5 @@ export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsF
         <ChevronRight size={13} />
       </a>
     </div>
-  );
-}
-
-/**
- * Inline vote button rendering thumbs-up controls for feed items.
- */
-function InlineFeedVoteButton({
-  logId,
-  logOwnerId,
-  currentUserId,
-  initialVoteCount,
-  initialHasVoted,
-}: {
-  logId: string | number;
-  logOwnerId: string;
-  currentUserId: string;
-  initialVoteCount: number;
-  initialHasVoted: boolean;
-}) {
-  const router = useRouter();
-  const [hasVoted, setHasVoted] = useState(initialHasVoted);
-  const [voteCount, setVoteCount] = useState(initialVoteCount);
-  const [isPending, startTransition] = useTransition();
-
-  const isSelf = logOwnerId === currentUserId;
-
-  const handleVote = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (isSelf || hasVoted || isPending) return;
-
-    startTransition(async () => {
-      const res = await castVoteAction(String(logId), logOwnerId, currentUserId);
-      if (res.success) {
-        setHasVoted(true);
-        setVoteCount((c) => c + 1);
-        router.refresh();
-      } else {
-        alert(res.error);
-      }
-    });
-  };
-
-  if (isSelf) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100 rounded-full px-2 py-0.5 select-none">
-        👍 {voteCount}/3 approvals
-      </span>
-    );
-  }
-
-  if (hasVoted) {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 select-none">
-        ✅ Approved • {voteCount}/3
-      </span>
-    );
-  }
-
-  return (
-    <button
-      onClick={handleVote}
-      disabled={isPending}
-      className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-full px-2.5 py-0.5 transition active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-      type="button"
-    >
-      👍 Approve • {voteCount}/3
-    </button>
   );
 }

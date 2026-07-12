@@ -24,7 +24,7 @@ type CombinedResult = IngestResult | DirectLogResult;
 export default function AddActivityModal({ userId, groupId }: AddActivityModalProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<'ai' | 'manual'>('ai');
+  const [mode, setMode] = useState<'ai' | 'manual'>('manual');
   const [isPending, startTransition] = useTransition();
 
   // Shared state
