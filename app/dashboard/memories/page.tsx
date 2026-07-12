@@ -16,11 +16,16 @@ export default async function MemoriesPage() {
 
   const supabase = await createClient();
 
-  // Fetch all group memories (using * to dynamically grab image_url or url columns without crash)
+  // Fetch all group memories explicitly with expected columns
   const { data: memoriesRaw, error: memoriesErr } = await supabase
     .from('memories')
     .select(`
-      *,
+      id,
+      group_id,
+      user_id,
+      image_url,
+      caption,
+      created_at,
       profiles:user_id ( id, nickname, full_name, avatar_url )
     `)
     .eq('group_id', groupId)
@@ -39,7 +44,11 @@ export default async function MemoriesPage() {
     const { data: commentsRaw, error: commentsErr } = await supabase
       .from('memory_comments')
       .select(`
-        *,
+        id,
+        memory_id,
+        user_id,
+        content,
+        created_at,
         profiles:user_id ( id, nickname, full_name, avatar_url )
       `)
       .in('memory_id', memoryIds)

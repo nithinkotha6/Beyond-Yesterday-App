@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, ChevronLeft, ChevronRight, MessageSquare, Plus, Send, RefreshCw, Heart } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { addMemory, addMemoryComment } from '@/app/actions/memories';
+import { uploadAndCreateMemoryAction, addMemoryComment } from '@/app/actions/memories';
 import UserAvatar from '@/components/UserAvatar';
 
 interface Memory {
@@ -95,6 +94,22 @@ function compressImage(file: File): Promise<Blob> {
   });
 }
 
+/**
+ * Helper to convert Blob to Base64 string for Server Action transmission.
+ */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1] || result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function MemoriesClientPage({
   initialMemories,
   initialComments,
@@ -112,7 +127,6 @@ export default function MemoriesClientPage({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const slideTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const supabase = createClient();
 
   // ── Mount Floating Hearts Animation ─────────────────────────────────────
   useEffect(() => {
@@ -187,37 +201,25 @@ export default function MemoriesClientPage({
       // 1. Compress Image client-side
       const compressedBlob = await compressImage(file);
 
-      // 2. Upload to Supabase Storage
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-      const filePath = `${groupId}/${fileName}`;
+      // 2. Convert compressed blob to base64 string
+      const base64Image = await blobToBase64(compressedBlob);
 
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('memories')
-        .upload(filePath, compressedBlob, { contentType: 'image/jpeg' });
+      // 3. Perform RLS-bypassed upload and DB insert on the server
+      const dbRes = await uploadAndCreateMemoryAction(
+        base64Image,
+        file.name,
+        groupId,
+        userId
+      );
 
-      if (uploadErr) {
-        throw new Error(uploadErr.message);
+      if (!dbRes.success || !dbRes.memory) {
+        throw new Error(dbRes.error || 'Server did not return a valid memory record.');
       }
 
-      // 3. Retrieve Public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('memories')
-        .getPublicUrl(filePath);
-
-      const publicUrl = publicUrlData.publicUrl;
-
-      // 4. Link in database
-      const dbRes = await addMemory(publicUrl, groupId, userId);
-      if (!dbRes.success) {
-        throw new Error(dbRes.error);
-      }
-
-      // 5. Update local memory state
+      // 4. Update local memory state (immediate presentation)
       const newMemory: Memory = {
         id: dbRes.memory.id,
-        image_url: dbRes.memory.image_url || dbRes.memory.url,
-        url: dbRes.memory.url,
+        image_url: dbRes.memory.image_url,
         caption: dbRes.memory.caption,
         created_at: dbRes.memory.created_at,
         user_id: dbRes.memory.user_id,
@@ -271,8 +273,8 @@ export default function MemoriesClientPage({
 
     try {
       const dbRes = await addMemoryComment(currentMemory.id, textToSubmit, userId);
-      if (!dbRes.success) {
-        throw new Error(dbRes.error);
+      if (!dbRes.success || !dbRes.comment) {
+        throw new Error(dbRes.error || 'Server did not return a valid comment record.');
       }
 
       // Update optimistic comment with actual database record details (id)
