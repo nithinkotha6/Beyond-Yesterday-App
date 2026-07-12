@@ -205,11 +205,11 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
               <div className="relative mb-3">
                 <UserAvatar 
                   user={secondPlace.profile} 
-                  size="2xl" 
+                  size="xl" 
                   className="shadow-md border-4 border-slate-300 hover:scale-105"
                 />
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-slate-300 text-slate-900 font-black text-[10px] rounded-full w-5 h-5 flex items-center justify-center shadow border border-white select-none">
-                  2
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#F8FAFC] text-base rounded-full w-6 h-6 flex items-center justify-center shadow border border-slate-300 select-none">
+                  🥈
                 </div>
               </div>
               <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
@@ -236,19 +236,21 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
           {firstPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-6 duration-700">
               <div className="relative mb-3">
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 z-10 text-xl animate-bounce" role="img" aria-label="Gold Trophy">🏆</span>
                 <UserAvatar 
                   user={firstPlace.profile} 
-                  size="3xl" 
+                  size="2xl" 
                   className="shadow-xl border-4 border-yellow-400 hover:scale-105"
                 />
-                <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-950 font-black text-[11px] rounded-full w-5 h-5 flex items-center justify-center shadow border border-white select-none">
-                  1
+                <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-[#FFFDF0] text-base rounded-full w-6 h-6 flex items-center justify-center shadow border border-yellow-400 select-none">
+                  🥇
                 </div>
               </div>
               <span className="text-xs font-black text-[#111827] truncate max-w-full mb-2">
                 {firstPlace.profile.nickname || firstPlace.profile.full_name}
               </span>
-              <div className="w-full h-20 bg-gradient-to-t from-yellow-500/20 to-yellow-500/5 border-2 border-yellow-400 rounded-t-2xl flex flex-col items-center justify-center shadow-lg">
+              <div className="w-full h-20 bg-gradient-to-t from-yellow-500/20 to-yellow-500/5 border-2 border-yellow-400 rounded-t-2xl flex flex-col items-center justify-center shadow-lg p-1">
+                <span className="text-[9px] font-black text-yellow-600 uppercase tracking-widest mb-0.5">Champion</span>
                 <span className="text-2xl md:text-3xl font-black text-yellow-600 tabular-nums tracking-tight">
                   {firstPlace.score}
                 </span>
@@ -271,11 +273,11 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
               <div className="relative mb-3">
                 <UserAvatar 
                   user={thirdPlace.profile} 
-                  size="2xl" 
+                  size="xl" 
                   className="shadow-md border-4 border-amber-600 hover:scale-105"
                 />
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white font-black text-[10px] rounded-full w-5 h-5 flex items-center justify-center shadow border border-white select-none">
-                  3
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#FFFBEB] text-base rounded-full w-6 h-6 flex items-center justify-center shadow border border-amber-600 select-none">
+                  🥉
                 </div>
               </div>
               <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
