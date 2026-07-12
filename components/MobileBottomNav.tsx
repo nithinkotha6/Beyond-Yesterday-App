@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 const ITEMS = [
   { icon: LayoutDashboard, label: 'Home',        href: '/dashboard' },
   { icon: BarChart2,       label: 'Leaderboard', href: '/dashboard/leaderboard' },
-  { icon: Users,           label: 'Community',   href: '/dashboard/community' },
+  { icon: Users,           label: 'Gang',        href: '/dashboard/gang' },
 ];
 
 /**

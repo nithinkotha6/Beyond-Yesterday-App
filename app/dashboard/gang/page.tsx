@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 import UserAvatar from '@/components/UserAvatar';
 
-export default async function CommunityPage() {
+export default async function GangPage() {
   // ── Session Authentication ─────────────────────────────────────────────
   const cookieStore = await cookies();
   const token       = cookieStore.get(SESSION_COOKIE)?.value;
@@ -55,7 +55,7 @@ export default async function CommunityPage() {
       <header className="mb-6">
         <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111827] leading-none flex items-center gap-3">
           <Users className="text-[#CEFF00] w-10 h-10 stroke-[2.5]" />
-          Community
+          Gang
         </h1>
         <p className="mt-2 text-[11px] font-bold tracking-[0.18em] text-[#6B7280] uppercase">
           {group?.name ?? 'Texas Buds'} Roster · {roster.length} Member{roster.length !== 1 ? 's' : ''}
@@ -113,7 +113,7 @@ export default async function CommunityPage() {
       ) : (
         <div className="bg-white rounded-[24px] border border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-12 text-center flex flex-col items-center justify-center gap-2">
           <Users size={32} className="text-[#E5E7EB]" />
-          <p className="text-sm font-bold text-[#9CA3AF]">Your community has no athletes yet.</p>
+          <p className="text-sm font-bold text-[#9CA3AF]">Your gang has no athletes yet.</p>
           <p className="text-xs text-[#D1D5DB]">Use your group invite code during signup to add members!</p>
         </div>
       )}

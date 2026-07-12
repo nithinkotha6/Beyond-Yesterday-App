@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard',   href: '/dashboard' },
   { icon: Activity,        label: 'Activity',    href: '#' },
   { icon: BarChart2,       label: 'Leaderboard', href: '/dashboard/leaderboard' },
-  { icon: Users,           label: 'Community',   href: '/dashboard/community' },
+  { icon: Users,           label: 'Gang',        href: '/dashboard/gang' },
   { icon: Trophy,          label: 'Challenges',  href: '#' },
   { icon: ShoppingBag,     label: 'Gear',        href: '#' },
 ];

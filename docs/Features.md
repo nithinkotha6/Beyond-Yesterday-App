@@ -11,7 +11,7 @@ The interface utilizes a strict split-layout design to maximize contrast and foc
   - `Dashboard` (Active state: accented with Neon Lime `#CEFF00` text and a subtle left border/indicator).
   - `Activity` (Activity queue/history).
   - `Leaderboard` (Olympic podium view rankings).
-  - `Community` (Roster of group members).
+  - `Gang` (Roster of group members).
   - `Challenges` and `Gear` (Stubs for future features).
 - **Gamified User Profile Block:** Positioned near the bottom of the navigation.
   - Displays the user's avatar.
@@ -48,7 +48,7 @@ The interface utilizes a strict split-layout design to maximize contrast and foc
 - **Podium Header (Top 3):** Mobile-first staggered pedestal layout (1st place Center/tallest, 2nd place Left/medium, 3rd place Right/lower). Features gold, silver, and bronze badges.
 - **Rankings Table:** Clean table underneath the podium detailing ranks 4 and below with user avatars, levels, XP details, and exact scores.
 
-## 6. Community Roster View
+## 6. Gang Roster View
 - **Roster Directory Grid:** Responsive square cards displaying members of the active group.
 - **Member Roster Card:** Features large centered `<UserAvatar />` badges with level overlays, user full name, nickname, current Level, and total XP.
 

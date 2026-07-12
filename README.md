@@ -8,7 +8,7 @@ Welcome to **The Growth Club**, a mobile-first workout tracking and competitive 
 - **Strict Personal PIN Authentication:** One-step room selection and 4-digit PIN verification. Fully cookie-based session scoping (scraped via HTTP-only secure cookie `app_session`).
 - **Interactive Trend Charts:** Clean ECharts visual charts utilizing a TradingView/Robinhood stock-market UX aesthetic. Floating curves with strict null normalization to eliminate zero-plunges on rest days.
 - **Dynamic Leaderboards:** Multi-metric Olympic podium rankings (1st, 2nd, 3rd) and detailed scrollable rankings lists for other group members.
-- **Community Roster Grid:** Clean visual directory cards displaying group members, nicknames, current levels, and cumulative XP badges.
+- **Gang Roster Grid:** Clean visual directory cards displaying group members, nicknames, current levels, and cumulative XP badges.
 - **Breaking News Feed:** Chronological natural language stream of recent activities decorated with initials-fallback `<UserAvatar />` badges.
 - **Natural Language Ingestion:** Manual workout logging via natural language processing (powered by Gemini AI parsing updates to metric slugs).
 
