@@ -6,12 +6,13 @@ import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 import { METRIC_PILLS, RANGE_OPTIONS, type MetricSlug, type RangeValue } from '@/lib/metrics';
 import { getChartData, getFeedItems } from '@/lib/queries';
 import type { FeedRow } from '@/lib/queries';
-import AddActivityModal   from '@/components/AddActivityModal';
-import MetricChart        from '@/components/MetricChart';
+import AddActivityModal        from '@/components/AddActivityModal';
+import MetricChart             from '@/components/MetricChart';
 import BreakingNewsFeed, { type FeedItem } from '@/components/BreakingNewsFeed';
-import MetricPillSelector from '@/components/MetricPillSelector';
-import DateRangeSelector  from '@/components/DateRangeSelector';
-import VotingPanel        from '@/components/VotingPanel';
+import MetricPillSelector      from '@/components/MetricPillSelector';
+import DateRangeSelector       from '@/components/DateRangeSelector';
+import VotingPanel             from '@/components/VotingPanel';
+import LiveAchievementTicker   from '@/components/LiveAchievementTicker';
 
 /**
  * Dashboard page — async Server Component.
@@ -34,34 +35,38 @@ function formatActivityMessage(log: FeedRow): string {
       return val >= 10
         ? `${name} crushed a ${val} ${unit} long run 🏃‍♂️🔥`
         : `${name} ran ${val} ${unit} 🏃`;
-    case 'deadlift':
-      return val >= 300
-        ? `${name} pulled ${val} ${unit} on deadlifts — absolute BEAST 💪`
-        : `${name} hit ${val} ${unit} on deadlifts 💪`;
     case 'top_speed':
       return val >= 20
         ? `${name} clocked a blistering ${val} ${unit} top speed ⚡`
         : `${name} hit ${val} ${unit} top speed ⚡`;
-    case 'calories':
-      return val >= 600
-        ? `${name} torched ${val} ${unit} in an intense session 🔥`
-        : `${name} burned ${val} ${unit} 🔥`;
     case 'weight':
       return `${name} logged a ${val} ${unit} body weight check-in ⚖️`;
-    case 'beers':
-      return `${name} put away ${val} beer${val !== 1 ? 's' : ''} 🍺`;
-    case 'squat':
-      return `${name} squatted ${val} ${unit} 🦵`;
-    case 'bench_press':
-      return `${name} benched ${val} ${unit} 🏋️`;
-    case 'pull_ups':
-      return `${name} repped ${val} pull-up${val !== 1 ? 's' : ''} 🔝`;
-    case 'push_ups':
-      return `${name} did ${val} push-up${val !== 1 ? 's' : ''} 💥`;
-    case 'sleep':
-      return `${name} logged ${val} hrs of sleep 😴`;
-    case '5k_time':
-      return `${name} ran a 5K in ${val} min 🏅`;
+    case 'highest_steps':
+      return val >= 15000
+        ? `${name} walked an insane ${val.toLocaleString()} steps today 👟🔥`
+        : `${name} clocked ${val.toLocaleString()} steps today 👟`;
+    case 'marathon':
+      return `${name} completed a marathon in ${val} ${unit} 🏅`;
+    case 'car_top_speed':
+      return val >= 100
+        ? `${name} pushed the Hycross to ${val} ${unit} — speed demon! 🚗💨`
+        : `${name} clocked ${val} ${unit} in the Hycross 🚗`;
+    case 'underwater_swim':
+      return val >= 50
+        ? `${name} swam ${val} meters underwater on one breath — INCREDIBLE 🤿`
+        : `${name} swam ${val} meters underwater 🤿`;
+    case 'most_beers':
+      return val >= 10
+        ? `${name} put away ${val} beers — legend 🍺🏆`
+        : `${name} had ${val} beer${val !== 1 ? 's' : ''} last night 🍺`;
+    case 'catan_wins':
+      return `${name} won Catan! 🎲 On a roll…`;
+    case 'national_parks':
+      return `${name} visited a national park — living the life! 🏔️`;
+    case 'have_partner':
+      return val === 1
+        ? `${name} has a partner! 💖 Love is in the air~`
+        : `${name} is officially single 💀 (no partner logged)`;
     default: {
       const display = slug.replace(/_/g, ' ');
       return `${name} logged ${val} ${unit} of ${display} 🏆`;
@@ -125,7 +130,7 @@ export default async function DashboardPage({
   console.log('[dashboard] activeRange     :', activeRange);
 
   // ── Parallel data fetch ──────────────────────────────────────────────────
-  const [{ dateLabels, series }, feedRows] = await Promise.all([
+  const [{ dateLabels, series, bucketSize }, feedRows] = await Promise.all([
     getChartData(supabase, groupId, activeMetric, activeRange, activePill.isCumulative),
     getFeedItems(supabase, groupId, 12),
   ]);
@@ -173,8 +178,15 @@ export default async function DashboardPage({
         </div>
       </header>
 
+      {/* ── Live Ticker (in-page, below header) ────────────────────── */}
+      <Suspense fallback={null}>
+        <LiveAchievementTicker groupId={groupId} />
+      </Suspense>
+
       {/* ── Metric Pills ─────────────────────────────────────────────── */}
-      <MetricPillSelector activeMetric={activeMetric} />
+      <div className="mt-4">
+        <MetricPillSelector activeMetric={activeMetric} />
+      </div>
 
       {/* ── Group-ID Debug Banner (only when data is empty) ─────────────── */}
       {series.length === 0 && feedRows.length === 0 && (
@@ -195,6 +207,7 @@ export default async function DashboardPage({
           unit={activePill.unit}
           metricLabel={activePill.label}
           rangeLabel={activeRangeLabel}
+          bucketSize={bucketSize}
         />
         <BreakingNewsFeed items={feedItems} />
       </div>

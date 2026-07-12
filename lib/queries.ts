@@ -57,19 +57,23 @@ export type ChartSeries = {
 const COLOR_PALETTE = ['#FF3B30', '#007AFF', '#AF52DE', '#34C759', '#FFCC00'];
 
 /**
- * Returns chronological chart series for a specific metric and date range.
+ * Returns chronological chart series for a specific metric and date range,
+ * with automatic bucket downsampling based on the active range:
  *
- * - Fetches verified logs sorted ASC so they plot left→right over time.
- * - Produces a flat list of unique date labels and a parallel `points` array
- *   per user (suitable for direct ECharts series consumption).
- * - Cumulative metrics: the caller must pass `isCumulative=true`; this
- *   function computes a per-user running total over the returned dates.
+ *  - 7d  → daily raw data points (bucketSize = 1)
+ *  - 30d → 3-day buckets; max/sum per window (bucketSize = 3, ~10 points)
+ *  - 90d → 7-day weekly buckets; max/sum per week (bucketSize = 7, ~13 points)
+ *  - all → 7-day weekly buckets (bucketSize = 7)
+ *
+ * - Returns `bucketSize` (1 | 3 | 7) alongside series so the chart can
+ *   adapt its X-axis label density and formatting.
+ * - Avatar endpoint badges attach to the last non-null point after downsampling.
  *
  * @param supabase      Supabase server client
  * @param groupId       Group UUID
- * @param metricSlug    The metric to chart (e.g. 'deadlift', 'long_run')
+ * @param metricSlug    The metric to chart
  * @param range         Date range string: '7d' | '30d' | '90d' | 'all'
- * @param isCumulative  If true, compute running totals per user per date
+ * @param isCumulative  If true, compute running totals per user per bucket
  */
 export async function getChartData(
   supabase: SupabaseClient,
@@ -77,11 +81,16 @@ export async function getChartData(
   metricSlug: string,
   range = '7d',
   isCumulative = false,
-): Promise<{ dateLabels: string[]; series: ChartSeries[] }> {
+): Promise<{ dateLabels: string[]; series: ChartSeries[]; bucketSize: 1 | 3 | 7 }> {
   if (!groupId || !metricSlug) {
     console.error('[getChartData] missing groupId or metricSlug:', { groupId, metricSlug });
-    return { dateLabels: [], series: [] };
+    return { dateLabels: [], series: [], bucketSize: 1 };
   }
+
+  // ── Determine bucket size from range ───────────────────────────────────
+  const bucketSize: 1 | 3 | 7 =
+    range === '90d' || range === 'all' ? 7 :
+    range === '30d'                    ? 3 : 1;
 
   const days  = rangeToDays(range);
   const since = new Date();
@@ -117,24 +126,44 @@ export async function getChartData(
   const rows = (data ?? []) as unknown as Row[];
 
   if (rows.length === 0) {
-    return { dateLabels: [], series: [] };
+    return { dateLabels: [], series: [], bucketSize };
   }
 
-  // ── Build ordered unique date label list ────────────────────────────────
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // ── Bucket key formatter ─────────────────────────────────────────────────
+  // Maps an ISO timestamp to a stable label that groups dates into one bucket.
+  // Uses epoch-day arithmetic so buckets are consistent calendar-agnostic windows.
+  function getBucketKey(iso: string): string {
+    const d = new Date(iso);
+    if (bucketSize === 1) {
+      // Daily: "Jul 4"
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } else if (bucketSize === 3) {
+      // 3-day bucket: label is the start of the 3-day epoch window
+      const epochDay = Math.floor(d.getTime() / (1000 * 60 * 60 * 24));
+      const windowStart = epochDay - (epochDay % 3);
+      const bucketStart = new Date(windowStart * 24 * 60 * 60 * 1000);
+      return bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } else {
+      // 7-day bucket: label is start of the weekly epoch window
+      const epochDay = Math.floor(d.getTime() / (1000 * 60 * 60 * 24));
+      const windowStart = epochDay - (epochDay % 7);
+      const bucketStart = new Date(windowStart * 24 * 60 * 60 * 1000);
+      return bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  }
 
-  // Collect all unique dates in chronological order
-  const dateSet = new Set<string>();
-  for (const r of rows) dateSet.add(fmt(r.logged_at));
-  const dateLabels = Array.from(dateSet);
+  // ── Build ordered unique bucket label list ──────────────────────────────
+  // JS Set maintains insertion order (ES2015+), so chronological order is preserved
+  const bucketSet = new Set<string>();
+  for (const r of rows) bucketSet.add(getBucketKey(r.logged_at));
+  const dateLabels = Array.from(bucketSet);
 
   // ── Build per-user data map ─────────────────────────────────────────────
-  // userId → { name, avatar, dateLabel → value }
+  // userId → { name, avatar, bucketKey → aggregated value }
   const userMap = new Map<string, {
     name:      string;
     avatar_url: string;
-    byDate:    Map<string, number>;
+    byBucket:  Map<string, number>;
   }>();
 
   for (const r of rows) {
@@ -143,13 +172,18 @@ export async function getChartData(
       userMap.set(r.user_id, {
         name:      p.nickname ?? p.full_name ?? 'Athlete',
         avatar_url: p.avatar_url ?? '',
-        byDate:    new Map(),
+        byBucket:  new Map(),
       });
     }
-    const entry   = userMap.get(r.user_id)!;
-    const dateKey = fmt(r.logged_at);
-    // For performance metrics: keep the max value logged on that day
-    entry.byDate.set(dateKey, Math.max(entry.byDate.get(dateKey) ?? 0, Number(r.value)));
+    const entry     = userMap.get(r.user_id)!;
+    const bucketKey = getBucketKey(r.logged_at);
+    // Performance/best metrics: keep the max value in the bucket window
+    // Cumulative metrics: sum all values within the bucket window
+    if (isCumulative) {
+      entry.byBucket.set(bucketKey, (entry.byBucket.get(bucketKey) ?? 0) + Number(r.value));
+    } else {
+      entry.byBucket.set(bucketKey, Math.max(entry.byBucket.get(bucketKey) ?? 0, Number(r.value)));
+    }
   }
 
   // ── Build ChartSeries ───────────────────────────────────────────────────
@@ -160,8 +194,8 @@ export async function getChartData(
     let running = 0;
     let hasAnyLogs = false;
     const points = dateLabels.map((d) => {
-      const hasVal = entry.byDate.has(d);
-      const v = entry.byDate.get(d) ?? 0;
+      const hasVal = entry.byBucket.has(d);
+      const v = entry.byBucket.get(d) ?? 0;
       if (isCumulative) {
         if (hasVal) {
           running += v;
@@ -182,7 +216,7 @@ export async function getChartData(
     colorIdx++;
   }
 
-  return { dateLabels, series };
+  return { dateLabels, series, bucketSize };
 }
 
 /* ── getFeedItems ─────────────────────────────────────────────────────────── */

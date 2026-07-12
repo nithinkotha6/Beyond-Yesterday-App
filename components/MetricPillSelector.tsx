@@ -1,19 +1,24 @@
 'use client';
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { PersonStanding, Dumbbell, Zap, Scale, Flame } from 'lucide-react';
 import { METRIC_PILLS, type MetricSlug } from '@/lib/metrics';
 
-// Map slug → Lucide icon (client-side only — icons use React, can't go in plain lib file)
-const PILL_ICONS: Record<MetricSlug, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
-  long_run:  PersonStanding,
-  deadlift:  Dumbbell,
-  top_speed: Zap,
-  weight:    Scale,
-  calories:  Flame,
-};
-
 export { METRIC_PILLS, type MetricSlug };
+
+// Emoji icons for each metric — lightweight, no icon library needed
+const PILL_EMOJIS: Record<string, string> = {
+  long_run:       '🏃',
+  top_speed:      '⚡',
+  weight:         '⚖️',
+  highest_steps:  '👟',
+  marathon:       '🏅',
+  car_top_speed:  '🚗',
+  underwater_swim:'🤿',
+  most_beers:     '🍺',
+  catan_wins:     '🎲',
+  national_parks: '🏔️',
+  have_partner:   '💘',
+};
 
 interface MetricPillSelectorProps {
   activeMetric: MetricSlug;
@@ -21,8 +26,8 @@ interface MetricPillSelectorProps {
 
 /**
  * Client-side metric pill toggle row.
- * On click, pushes `?metric=<slug>` to the URL — the parent Server Component
- * re-renders with the new searchParam and runs the correct Supabase query.
+ * Horizontally scrollable on mobile — swipe through all 11 metrics.
+ * On click, pushes `?metric=<slug>` to the URL.
  * Spec: Features.md §3 — metric toggles drive chart re-fetch.
  */
 export default function MetricPillSelector({ activeMetric }: MetricPillSelectorProps) {
@@ -38,13 +43,14 @@ export default function MetricPillSelector({ activeMetric }: MetricPillSelectorP
 
   return (
     <div
-      className="flex gap-2 md:gap-3 mb-6 overflow-x-auto pb-1 scrollbar-none"
+      className="flex gap-2 mb-6 overflow-x-auto py-1 scrollbar-none"
+      style={{ WebkitOverflowScrolling: 'touch' }}
       role="group"
       aria-label="Metric selector"
     >
       {METRIC_PILLS.map(({ id, label, bg, activeBg, color }) => {
         const isActive = id === activeMetric;
-        const Icon     = PILL_ICONS[id];
+        const emoji    = PILL_EMOJIS[id] ?? '📊';
         return (
           <button
             key={id}
@@ -52,12 +58,15 @@ export default function MetricPillSelector({ activeMetric }: MetricPillSelectorP
             aria-pressed={isActive}
             onClick={() => select(id)}
             className={[
-              'flex items-center gap-2 px-4 md:px-5 py-2.5 md:py-3 rounded-2xl min-h-[44px]',
-              'text-sm font-semibold whitespace-nowrap flex-shrink-0 transition-[transform,background-color] duration-150 ease-out',
-              isActive ? `${activeBg} ${color} ring-2 ring-black/10 scale-[1.03] shadow-sm` : `${bg} ${color} opacity-80 hover:opacity-100`,
+              'flex items-center gap-2 px-4 py-2.5 rounded-2xl min-h-[44px]',
+              'text-sm font-semibold whitespace-nowrap flex-shrink-0',
+              'transition-[transform,background-color] duration-150 ease-out',
+              isActive
+                ? `${activeBg} ${color} ring-2 ring-black/10 scale-[1.03] shadow-sm`
+                : `${bg} ${color} opacity-80 hover:opacity-100`,
             ].join(' ')}
           >
-            <Icon size={17} strokeWidth={isActive ? 2.5 : 2} />
+            <span className="text-base leading-none">{emoji}</span>
             {label}
           </button>
         );

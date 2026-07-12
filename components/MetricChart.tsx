@@ -9,10 +9,11 @@ export type { ChartSeries };
 interface MetricChartProps {
   dateLabels:   string[];   // chronological x-axis: ["Jul 4", "Jul 5", …]
   series:       ChartSeries[];
-  title:        string;     // e.g. "Deadlift — Last 30 Days"
-  unit:         string;     // e.g. "lbs", "mi", "kcal"
-  metricLabel:  string;     // e.g. "Deadlift" — used in empty state
+  title:        string;     // e.g. "Long Run — Last 30 Days"
+  unit:         string;     // e.g. "lbs", "mi", "steps"
+  metricLabel:  string;     // e.g. "Long Run" — used in empty state
   rangeLabel:   string;     // e.g. "Last 7 Days" — used in empty state
+  bucketSize?:  1 | 3 | 7; // 1=daily, 3=3-day buckets, 7=weekly
 }
 
 /**
@@ -64,6 +65,7 @@ export default function MetricChart({
   unit,
   metricLabel,
   rangeLabel,
+  bucketSize = 1,
 }: MetricChartProps) {
   const [isolatedUserId, setIsolatedUserId] = useState<string | null>(null);
 
@@ -145,7 +147,19 @@ export default function MetricChart({
         color: '#9CA3AF',
         fontSize: 11,
         fontWeight: 600,
-        interval: dateLabels.length > 14 ? Math.ceil(dateLabels.length / 7) - 1 : 0,
+        // Adaptive interval: daily=auto, 3-day=every other bucket, weekly=every bucket
+        interval:
+          bucketSize === 7 ? Math.max(0, Math.ceil(dateLabels.length / 6) - 1) :
+          bucketSize === 3 ? Math.max(0, Math.ceil(dateLabels.length / 8) - 1) :
+          dateLabels.length > 14 ? Math.ceil(dateLabels.length / 7) - 1 : 0,
+        // For weekly buckets, show only month name to avoid overlap on mobile
+        formatter: bucketSize === 7
+          ? (val: string) => {
+              // val is like "Jun 28" — extract just month for 90d weekly view
+              const parts = val.split(' ');
+              return parts[0] ?? val;
+            }
+          : undefined,
       },
     },
     yAxis: {

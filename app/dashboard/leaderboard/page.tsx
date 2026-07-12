@@ -8,12 +8,18 @@ import UserAvatar from '@/components/UserAvatar';
 
 // Curated list of metrics for ranking
 const LEADERBOARD_METRICS = [
-  { id: 'long_run',         label: 'Long Run',         unit: 'mi',   isCumulative: true },
-  { id: 'top_speed',        label: 'Top Speed',        unit: 'mph',  isCumulative: false },
-  { id: 'deadlift',         label: 'Deadlift',         unit: 'lbs',  isCumulative: false },
-  { id: 'calories',         label: 'Calories',         unit: 'kcal', isCumulative: true },
-  { id: 'weight',           label: 'Weight',           unit: 'lbs',  isCumulative: false },
-  { id: 'total_activities', label: 'Total Activities', unit: 'logs', isCumulative: true }, // Count of verified entries
+  { id: 'long_run',         label: 'Long Run',          unit: 'mi',     isCumulative: true  },
+  { id: 'top_speed',        label: 'Top Speed',         unit: 'mph',    isCumulative: false },
+  { id: 'weight',           label: 'Weight',            unit: 'lbs',    isCumulative: false },
+  { id: 'highest_steps',   label: 'Highest Steps',     unit: 'steps',  isCumulative: false },
+  { id: 'marathon',         label: 'Marathon',          unit: 'hrs',    isCumulative: false },
+  { id: 'car_top_speed',   label: 'Car Top Speed',     unit: 'mph',    isCumulative: false },
+  { id: 'underwater_swim', label: 'Underwater Swim',   unit: 'meters', isCumulative: false },
+  { id: 'most_beers',      label: 'Most Beers',        unit: 'beers',  isCumulative: false },
+  { id: 'catan_wins',      label: 'Catan Wins',        unit: 'wins',   isCumulative: true  },
+  { id: 'national_parks',  label: 'National Parks',    unit: 'parks',  isCumulative: true  },
+  { id: 'have_partner',    label: 'Have Partner? 👀',  unit: 'status', isCumulative: false },
+  { id: 'total_activities', label: 'Total Activities', unit: 'logs',   isCumulative: true  },
 ];
 
 interface LeaderboardPageProps {
