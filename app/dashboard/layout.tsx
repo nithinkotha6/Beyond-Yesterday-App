@@ -1,9 +1,7 @@
-import { Suspense }              from 'react';
 import { cookies }               from 'next/headers';
 import { redirect }              from 'next/navigation';
 import Sidebar                   from '@/components/Sidebar';
 import MobileBottomNav           from '@/components/MobileBottomNav';
-import LiveAchievementTicker     from '@/components/LiveAchievementTicker';
 import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 import { createClient }          from '@/lib/supabase/server';
 
@@ -56,19 +54,7 @@ export default async function DashboardLayout({
         className="flex-1 bg-[#F7F8FA] min-w-0 overflow-y-auto pb-28 pb-safe md:pb-0 flex flex-col"
         id="main-content"
       >
-        {/* Live Achievement Ticker — full-bleed dark top bar */}
-        <Suspense
-          fallback={
-            <div className="w-full h-9 bg-[#0A0A0A] border-b border-white/5 flex items-center px-3">
-              <span className="text-[10px] font-black text-[#CEFF00] tracking-[0.2em] uppercase animate-pulse">
-                LIVE
-              </span>
-            </div>
-          }
-        >
-          {/* Pass groupId so ticker only shows logs from this group */}
-          <LiveAchievementTicker groupId={session.groupId} />
-        </Suspense>
+
 
         {/* Page-specific content — session passed via searchParams or server context */}
         {children}

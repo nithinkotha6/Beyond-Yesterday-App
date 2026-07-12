@@ -12,6 +12,7 @@ import BreakingNewsFeed, { type FeedItem } from '@/components/BreakingNewsFeed';
 import MetricPillSelector      from '@/components/MetricPillSelector';
 import DateRangeSelector       from '@/components/DateRangeSelector';
 import VotingPanel             from '@/components/VotingPanel';
+import LiveAchievementTicker   from '@/components/LiveAchievementTicker';
 
 /**
  * Dashboard page — async Server Component.
@@ -167,9 +168,20 @@ export default async function DashboardPage({
         </svg>
       </header>
 
-      {/* ── Row 2: Live Ticker rendered by layout.tsx above this page ─ */}
-      {/* (LiveAchievementTicker is mounted in dashboard/layout.tsx,     */}
-      {/*  sitting between the nav chrome and this page content block)   */}
+      {/* ── Row 2: Live Ticker (Now inside page for correct document flow) */}
+      <div className="-mx-4 md:-mx-8 mb-4">
+        <Suspense
+          fallback={
+            <div className="w-full h-9 bg-[#0A0A0A] border-b border-white/5 flex items-center px-3">
+              <span className="text-[10px] font-black text-[#CEFF00] tracking-[0.2em] uppercase animate-pulse">
+                LIVE
+              </span>
+            </div>
+          }
+        >
+          <LiveAchievementTicker groupId={groupId} />
+        </Suspense>
+      </div>
 
       {/* ── Row 3: Controls Row (Range Selector + Add Activity) ──────── */}
       <div className="flex items-center justify-between gap-2 mb-4">

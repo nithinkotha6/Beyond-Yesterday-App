@@ -20,11 +20,11 @@ type LogRow = {
   value: number;
   metric_slug: string; // v2 schema: stored directly on the row
   unit: string;
-  profiles: { full_name: string | null } | null;
+  profiles: { full_name: string | null; nickname: string | null } | null;
 };
 
 function formatAchievement(log: LogRow): string {
-  const name = log.profiles?.full_name?.split(' ')[0] ?? 'Someone';
+  const name = log.profiles?.nickname ?? log.profiles?.full_name?.split(' ')[0] ?? 'Someone';
   const val  = Number(log.value);
   const slug = log.metric_slug ?? '';
   const unit = log.unit ?? '';
@@ -117,7 +117,7 @@ export default async function LiveAchievementTicker({ groupId }: { groupId: stri
       value,
       metric_slug,
       unit,
-      profiles!inner ( full_name )
+      profiles!inner ( full_name, nickname )
     `)
     .eq('group_id', groupId)
     .eq('status', 'verified')
@@ -140,9 +140,9 @@ export default async function LiveAchievementTicker({ groupId }: { groupId: stri
   const doubled = [...sentences, ...sentences];
 
   return (
-    /* Outer wrapper: dark band, overflow-hidden to block any scrollbar bleed */
+    /* Outer wrapper: explicit mobile-first flex, overflow-hidden to block scrollbar bleed */
     <div
-      className="ticker-wrapper w-full overflow-hidden bg-[#0A0A0A] border-b border-white/5 h-9 flex items-center"
+      className="ticker-wrapper flex w-full overflow-hidden relative bg-[#0A0A0A] border-b border-white/5 h-9 items-center"
       aria-label="Live achievement ticker"
       role="marquee"
     >

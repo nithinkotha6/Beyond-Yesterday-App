@@ -90,10 +90,10 @@ export default async function CommunityPage() {
                 {/* Name Details */}
                 <div className="flex flex-col w-full min-w-0">
                   <h3 className="font-extrabold text-sm text-[#111827] truncate w-full">
-                    {profile.full_name}
+                    {profile.nickname || profile.full_name}
                   </h3>
                   <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mt-0.5 truncate w-full">
-                    {profile.nickname || 'Club Member'}
+                    {profile.full_name || 'Club Member'}
                   </p>
                 </div>
 
