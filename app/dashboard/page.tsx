@@ -12,7 +12,6 @@ import BreakingNewsFeed, { type FeedItem } from '@/components/BreakingNewsFeed';
 import MetricPillSelector      from '@/components/MetricPillSelector';
 import DateRangeSelector       from '@/components/DateRangeSelector';
 import VotingPanel             from '@/components/VotingPanel';
-import LiveAchievementTicker   from '@/components/LiveAchievementTicker';
 
 /**
  * Dashboard page — async Server Component.
@@ -155,40 +154,33 @@ export default async function DashboardPage({
   return (
     <div className="p-4 md:p-8">
 
-      {/* ── Page Header ──────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div className="min-w-0">
-          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111827] leading-none">
-            The Growth Club
-          </h1>
-          <p className="mt-2 text-[11px] font-bold tracking-[0.18em] text-[#6B7280] uppercase">
-            Train Together. Compete Together. Grow Together.
-          </p>
-          <svg width="340" height="14" viewBox="0 0 340 14" fill="none" aria-hidden="true" className="mt-0.5 max-w-full">
-            <path d="M2 10 C40 3, 90 13, 140 7 S210 2, 260 8 S305 12, 338 6" stroke="#22C55E" strokeWidth="2.8" strokeLinecap="round" fill="none" />
-          </svg>
-        </div>
-
-        <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-          {/* Functional date range dropdown */}
-          <DateRangeSelector activeRange={activeRange} />
-
-          {/* Add activity modal — userId from session, not hardcoded */}
-          <AddActivityModal userId={userId} groupId={groupId} />
-        </div>
+      {/* ── Row 1: Page Header (title + tagline + underline) ─────────── */}
+      <header className="mb-5">
+        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111827] leading-none">
+          The Growth Club
+        </h1>
+        <p className="mt-2 text-[11px] font-bold tracking-[0.18em] text-[#6B7280] uppercase">
+          Train Together. Compete Together. Grow Together.
+        </p>
+        <svg width="340" height="14" viewBox="0 0 340 14" fill="none" aria-hidden="true" className="mt-0.5 max-w-full">
+          <path d="M2 10 C40 3, 90 13, 140 7 S210 2, 260 8 S305 12, 338 6" stroke="#22C55E" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+        </svg>
       </header>
 
-      {/* ── Live Ticker (in-page, below header) ────────────────────── */}
-      <Suspense fallback={null}>
-        <LiveAchievementTicker groupId={groupId} />
-      </Suspense>
+      {/* ── Row 2: Live Ticker rendered by layout.tsx above this page ─ */}
+      {/* (LiveAchievementTicker is mounted in dashboard/layout.tsx,     */}
+      {/*  sitting between the nav chrome and this page content block)   */}
 
-      {/* ── Metric Pills ─────────────────────────────────────────────── */}
-      <div className="mt-4">
-        <MetricPillSelector activeMetric={activeMetric} />
+      {/* ── Row 3: Controls Row (Range Selector + Add Activity) ──────── */}
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <DateRangeSelector activeRange={activeRange} />
+        <AddActivityModal userId={userId} groupId={groupId} />
       </div>
 
-      {/* ── Group-ID Debug Banner (only when data is empty) ─────────────── */}
+      {/* ── Row 4: Horizontal Scrolling Metric Pill Selector ─────────── */}
+      <MetricPillSelector activeMetric={activeMetric} />
+
+      {/* ── Group-ID Debug Banner (only when data is empty) ──────────── */}
       {series.length === 0 && feedRows.length === 0 && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-mono text-amber-800">
           <p className="font-bold mb-1">⚠️ No data returned for your session group.</p>
@@ -198,7 +190,7 @@ export default async function DashboardPage({
         </div>
       )}
 
-      {/* ── Chart + Feed ─────────────────────────────────────────────── */}
+      {/* ── Row 5: Primary Chart Card + Breaking News Feed ───────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 md:gap-6 mb-5 md:mb-6">
         <MetricChart
           dateLabels={dateLabels}
@@ -222,3 +214,4 @@ export default async function DashboardPage({
     </div>
   );
 }
+
