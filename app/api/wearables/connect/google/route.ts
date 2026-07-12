@@ -1,0 +1,52 @@
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { decodeSession, SESSION_COOKIE } from '@/lib/session';
+
+export async function GET(req: Request) {
+  try {
+    // 1. Verify user authentication via Supabase cookie session
+    const cookieStore = await cookies();
+    const token       = cookieStore.get(SESSION_COOKIE)?.value;
+    const session     = token ? await decodeSession(token) : null;
+    
+    if (!session || !session.userId) {
+      return NextResponse.json({ error: 'Unauthorized user session.' }, { status: 401 });
+    }
+
+    const userId = session.userId;
+
+    // 2. Read Google Client Credentials
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      console.error('[Google Connect] GOOGLE_CLIENT_ID is missing from environment.');
+      return NextResponse.json({ error: 'OAuth credentials not configured.' }, { status: 500 });
+    }
+
+    // 3. Dynamically construct redirect URI
+    const host = req.headers.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const redirectUri = `${protocol}://${host}/api/wearables/callback/google`;
+
+    // 4. Construct URL
+    const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    googleAuthUrl.searchParams.set('client_id', clientId);
+    googleAuthUrl.searchParams.set('redirect_uri', redirectUri);
+    googleAuthUrl.searchParams.set('response_type', 'code');
+    googleAuthUrl.searchParams.set('access_type', 'offline');
+    googleAuthUrl.searchParams.set('prompt', 'consent');
+    googleAuthUrl.searchParams.set('state', userId);
+    googleAuthUrl.searchParams.set(
+      'scope',
+      [
+        'https://www.googleapis.com/auth/fitness.activity.read',
+        'https://www.googleapis.com/auth/fitness.sleep.read',
+        'https://www.googleapis.com/auth/fitness.heart_rate.read',
+      ].join(' ')
+    );
+
+    return NextResponse.redirect(googleAuthUrl.toString());
+  } catch (err: any) {
+    console.error('[Google Connect] Direct handler crash:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
