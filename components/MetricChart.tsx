@@ -197,7 +197,7 @@ export default function MetricChart({
         const lines = sortedParams.map(
           (p) =>
             `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:5px;"></span>` +
-            `<b>${p.seriesName}</b>: ${p.value} ${unit}`,
+            `<b>${p.seriesName}</b>: <span class="tabular-nums font-bold tracking-tight">${p.value}</span> ${unit}`,
         );
         return `<div style="font-size:11px"><b>${date}</b><br/>${lines.length > 0 ? lines.join('<br/>') : 'No activities logged'}</div>`;
       },
@@ -251,7 +251,7 @@ export default function MetricChart({
   };
 
   return (
-    <div className="rounded-[24px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.04)] p-6 flex flex-col gap-4">
+    <div className="rounded-[24px] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-6 flex flex-col gap-4">
       {/* Card header */}
       <div>
         <div className="flex items-start justify-between mb-2">
@@ -307,7 +307,7 @@ export default function MetricChart({
                   />
                   <span>{s.name}</span>
                   {latestVal !== null && (
-                    <span className={`text-[10px] font-mono font-bold ${isIsolated ? 'text-[#CEFF00]' : 'text-[#9CA3AF]'}`}>
+                    <span className={`text-[10px] font-bold tabular-nums tracking-tight ${isIsolated ? 'text-[#CEFF00]' : 'text-[#9CA3AF]'}`}>
                       {latestVal}
                     </span>
                   )}

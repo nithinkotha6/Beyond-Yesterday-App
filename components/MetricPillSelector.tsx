@@ -47,7 +47,7 @@ export default function MetricPillSelector({ activeMetric }: MetricPillSelectorP
       role="group"
       aria-label="Metric selector"
     >
-      {METRIC_PILLS.map(({ id, label, bg, activeBg, color }) => {
+      {METRIC_PILLS.map(({ id, label }) => {
         const isActive = id === activeMetric;
         const emoji    = PILL_EMOJIS[id] ?? '📊';
         return (
@@ -61,8 +61,8 @@ export default function MetricPillSelector({ activeMetric }: MetricPillSelectorP
               'text-sm font-semibold whitespace-nowrap flex-shrink-0',
               'transition-[transform,background-color] duration-150 ease-out',
               isActive
-                ? `${activeBg} ${color} ring-2 ring-black/10 scale-[1.03] shadow-sm`
-                : `${bg} ${color} opacity-80 hover:opacity-100`,
+                ? 'bg-[#CEFF00] text-[#111827] ring-1 ring-black/5 scale-[1.03] shadow-sm font-bold'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200/80',
             ].join(' ')}
           >
             <span className="text-base leading-none">{emoji}</span>

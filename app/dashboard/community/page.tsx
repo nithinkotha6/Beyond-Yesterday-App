@@ -72,7 +72,7 @@ export default async function CommunityPage() {
             return (
               <div
                 key={profile.id}
-                className="bg-white rounded-[24px] border border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-5 flex flex-col items-center text-center transition-[transform,box-shadow] duration-200 ease-out hover:shadow-md hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
+                className="bg-white rounded-[24px] border border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-5 flex flex-col items-center text-center transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Large Centered Reusable UserAvatar */}
@@ -82,7 +82,7 @@ export default async function CommunityPage() {
                     size="3xl"
                     className="shadow-inner"
                   />
-                  <div className="absolute -bottom-1.5 -right-1.5 bg-[#111827] border-2 border-white text-[10px] font-black text-[#CEFF00] rounded-full w-6 h-6 flex items-center justify-center shadow">
+                  <div className="absolute -bottom-1.5 -right-1.5 bg-[#111827] border-2 border-white text-[10px] font-black text-[#CEFF00] rounded-full w-6 h-6 flex items-center justify-center shadow tabular-nums">
                     {profile.current_level}
                   </div>
                 </div>
@@ -99,10 +99,10 @@ export default async function CommunityPage() {
 
                 {/* XP and Level badging */}
                 <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap w-full">
-                  <span className="bg-[#CEFF00]/10 border border-[#CEFF00]/20 text-[#111827] text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wide">
+                  <span className="bg-[#CEFF00]/10 border border-[#CEFF00]/20 text-[#111827] text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wide tabular-nums">
                     Lvl {profile.current_level}
                   </span>
-                  <span className="bg-zinc-100 border border-zinc-200 text-zinc-600 text-[10px] font-bold px-3 py-1 rounded-full tabular-nums">
+                  <span className="bg-zinc-100 border border-zinc-200 text-zinc-600 text-[10px] font-bold px-3 py-1 rounded-full tabular-nums tracking-tight">
                     {profile.total_xp.toLocaleString()} XP
                   </span>
                 </div>

@@ -1,10 +1,11 @@
 import React from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { Trophy, Award } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 import UserAvatar from '@/components/UserAvatar';
+import CheerButton from '@/components/CheerButton';
 
 // Curated list of metrics for ranking
 const LEADERBOARD_METRICS = [
@@ -194,35 +195,37 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
 
       {/* ── Olympic Podium (Top 3) ───────────────────────────────────── */}
       <div 
-        className="flex items-end justify-center gap-3 md:gap-6 bg-white rounded-[24px] border border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-6 max-w-full overflow-hidden"
-        style={{ minHeight: '360px' }}
+        className="flex items-end justify-center gap-3 md:gap-6 bg-white rounded-[24px] border border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-6 max-w-full overflow-hidden"
+        style={{ minHeight: '280px' }}
       >
         {/* 2nd Place (Left Pedestal) */}
         <div className="flex flex-col items-center order-1 w-1/3 max-w-[150px]">
           {secondPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="relative mb-2">
-                <span className="absolute -top-2 -right-1 z-10 text-xl select-none" role="img" aria-label="Silver Medal">🥈</span>
+              <div className="relative mb-3">
                 <UserAvatar 
                   user={secondPlace.profile} 
                   size="2xl" 
-                  borderColor="#C0C0C0" 
-                  className="shadow-md hover:scale-105"
+                  className="shadow-md border-4 border-slate-300 hover:scale-105"
                 />
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-slate-300 text-slate-900 font-black text-[10px] rounded-full w-5 h-5 flex items-center justify-center shadow border border-white select-none">
+                  2
+                </div>
               </div>
-              <span className="text-[11px] font-bold text-[#111827] truncate max-w-full">
+              <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
                 {secondPlace.profile.nickname || secondPlace.profile.full_name}
               </span>
-              <span className="text-[10px] font-bold text-[#6B7280] mb-2">
-                {secondPlace.score} {metricPill.unit}
-              </span>
-              <div className="w-full h-28 bg-gradient-to-t from-slate-400/20 to-slate-400/5 border-2 border-slate-300 rounded-t-xl flex flex-col items-center justify-center shadow-inner">
-                <span className="text-2xl font-black text-slate-500">2</span>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Silver</span>
+              <div className="w-full h-14 bg-gradient-to-t from-slate-400/20 to-slate-400/5 border-2 border-slate-300 rounded-t-xl flex flex-col items-center justify-center shadow-inner">
+                <span className="text-xl md:text-2xl font-black text-slate-600 tabular-nums tracking-tight">
+                  {secondPlace.score}
+                </span>
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                  {metricPill.unit}
+                </span>
               </div>
             </div>
           ) : (
-            <div className="w-full h-28 bg-zinc-50 border border-zinc-100 rounded-t-xl flex items-center justify-center">
+            <div className="w-full h-14 bg-zinc-50 border border-zinc-100 rounded-t-xl flex items-center justify-center">
               <span className="text-xs font-bold text-[#9CA3AF]">—</span>
             </div>
           )}
@@ -232,28 +235,30 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-2 w-1/3 max-w-[180px]">
           {firstPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <div className="relative mb-2">
-                <span className="absolute -top-3 -right-2 z-10 text-3xl select-none animate-bounce" role="img" aria-label="Gold Medal">🥇</span>
+              <div className="relative mb-3">
                 <UserAvatar 
                   user={firstPlace.profile} 
                   size="3xl" 
-                  borderColor="#FFD700" 
-                  className="shadow-xl hover:scale-105"
+                  className="shadow-xl border-4 border-yellow-400 hover:scale-105"
                 />
+                <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-yellow-400 text-yellow-950 font-black text-[11px] rounded-full w-5 h-5 flex items-center justify-center shadow border border-white select-none">
+                  1
+                </div>
               </div>
-              <span className="text-xs font-black text-[#111827] truncate max-w-full">
+              <span className="text-xs font-black text-[#111827] truncate max-w-full mb-2">
                 {firstPlace.profile.nickname || firstPlace.profile.full_name}
               </span>
-              <span className="text-xs font-black text-[#CEFF00] bg-[#111827] px-2 py-0.5 rounded-md mb-2 shadow-sm">
-                {firstPlace.score} {metricPill.unit}
-              </span>
-              <div className="w-full h-36 bg-gradient-to-t from-yellow-500/20 to-yellow-500/5 border-2 border-yellow-400 rounded-t-2xl flex flex-col items-center justify-center shadow-lg">
-                <span className="text-4xl font-black text-yellow-600">1</span>
-                <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">Champion</span>
+              <div className="w-full h-20 bg-gradient-to-t from-yellow-500/20 to-yellow-500/5 border-2 border-yellow-400 rounded-t-2xl flex flex-col items-center justify-center shadow-lg">
+                <span className="text-2xl md:text-3xl font-black text-yellow-600 tabular-nums tracking-tight">
+                  {firstPlace.score}
+                </span>
+                <span className="text-[10px] font-black text-yellow-500 uppercase tracking-wider">
+                  {metricPill.unit}
+                </span>
               </div>
             </div>
           ) : (
-            <div className="w-full h-36 bg-zinc-50 border border-zinc-100 rounded-t-2xl flex items-center justify-center">
+            <div className="w-full h-20 bg-zinc-50 border border-zinc-100 rounded-t-2xl flex items-center justify-center">
               <span className="text-xs font-bold text-[#9CA3AF]">Empty</span>
             </div>
           )}
@@ -263,28 +268,30 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-3 w-1/3 max-w-[150px]">
           {thirdPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="relative mb-2">
-                <span className="absolute -top-2 -right-1 z-10 text-xl select-none" role="img" aria-label="Bronze Medal">🥉</span>
+              <div className="relative mb-3">
                 <UserAvatar 
                   user={thirdPlace.profile} 
                   size="2xl" 
-                  borderColor="#CD7F32" 
-                  className="shadow-md hover:scale-105"
+                  className="shadow-md border-4 border-amber-600 hover:scale-105"
                 />
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-600 text-white font-black text-[10px] rounded-full w-5 h-5 flex items-center justify-center shadow border border-white select-none">
+                  3
+                </div>
               </div>
-              <span className="text-[11px] font-bold text-[#111827] truncate max-w-full">
+              <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
                 {thirdPlace.profile.nickname || thirdPlace.profile.full_name}
               </span>
-              <span className="text-[10px] font-bold text-[#6B7280] mb-2">
-                {thirdPlace.score} {metricPill.unit}
-              </span>
-              <div className="w-full h-20 bg-gradient-to-t from-amber-700/20 to-amber-700/5 border-2 border-amber-600 rounded-t-xl flex flex-col items-center justify-center shadow-inner">
-                <span className="text-xl font-black text-amber-700">3</span>
-                <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">Bronze</span>
+              <div className="w-full h-10 bg-gradient-to-t from-amber-700/20 to-amber-700/5 border-2 border-amber-600 rounded-t-xl flex flex-col items-center justify-center shadow-inner">
+                <span className="text-lg md:text-xl font-black text-amber-800 tabular-nums tracking-tight">
+                  {thirdPlace.score}
+                </span>
+                <span className="text-[8px] font-black text-amber-700 uppercase tracking-wider">
+                  {metricPill.unit}
+                </span>
               </div>
             </div>
           ) : (
-            <div className="w-full h-20 bg-zinc-50 border border-zinc-100 rounded-t-xl flex items-center justify-center">
+            <div className="w-full h-10 bg-zinc-50 border border-zinc-100 rounded-t-xl flex items-center justify-center">
               <span className="text-xs font-bold text-[#9CA3AF]">—</span>
             </div>
           )}
@@ -292,7 +299,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
       </div>
 
       {/* ── Rankings List (4th Place & Below) ───────────────────────── */}
-      <div className="bg-white rounded-[24px] border border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-6">
+      <div className="bg-white rounded-[24px] border border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-6">
         <h2 className="text-base font-bold text-[#111827] mb-4">Rankings</h2>
 
         {tableAthletes.length > 0 ? (
@@ -303,7 +310,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
               return (
                 <div
                   key={athlete.profile.id}
-                  className={`rounded-2xl p-3 flex items-center justify-between transition-all duration-200 hover:shadow-sm border ${
+                  className={`rounded-2xl p-3 flex items-center justify-between transition-all duration-200 hover:shadow-[0_4px_15px_rgba(0,0,0,0.03)] border ${
                     isCurrentUser
                       ? 'bg-[#CEFF00]/10 border-[#CEFF00] shadow-sm'
                       : 'bg-white border-[#E5E7EB]'
@@ -321,14 +328,26 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
                       <p className="font-bold text-[#111827]">
                         {athlete.profile.nickname || athlete.profile.full_name}
                       </p>
-                      <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">
+                      <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider tabular-nums">
                         Lv {athlete.profile.current_level} · {athlete.profile.total_xp.toLocaleString()} XP
                       </p>
                     </div>
                   </div>
-                  {/* Score */}
-                  <div className="text-right font-black text-[#111827] tabular-nums">
-                    {athlete.score} <span className="text-xs font-bold text-[#6B7280]">{metricPill.unit}</span>
+                  {/* Score & Cheer Button */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="font-bold text-base text-[#111827] tabular-nums tracking-tight">
+                        {athlete.score}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#6B7280] ml-1 uppercase">
+                        {metricPill.unit}
+                      </span>
+                    </div>
+                    <CheerButton
+                      targetUserId={athlete.profile.id}
+                      targetName={athlete.profile.nickname || athlete.profile.full_name || 'Athlete'}
+                      metricLabel={metricPill.label}
+                    />
                   </div>
                 </div>
               );
