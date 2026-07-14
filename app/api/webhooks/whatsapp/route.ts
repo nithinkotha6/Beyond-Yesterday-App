@@ -94,24 +94,6 @@ export async function POST(req: Request) {
     // ── 3. Database Context Gathering & Sender Verification ─────────────────
     const supabaseAdmin = getAdminClient();
 
-    // Resolve sender profile by sanitizing phone JID (Pillar 2)
-    let senderProfile = null;
-    if (rawSender) {
-      const cleanSenderPhone = rawSender.replace(/@c\.us$/, '').replace(/\D/g, '');
-      const { data: matchedProfile, error: matchError } = await supabaseAdmin
-        .from('profiles')
-        .select('id, nickname, full_name')
-        .or(`phone_number.eq.${cleanSenderPhone},phone_number.eq.+${cleanSenderPhone}`)
-        .maybeSingle();
-
-      if (matchError) {
-        console.error('[webhook/whatsapp] Error matching sender JID to profile:', matchError);
-      } else if (matchedProfile) {
-        senderProfile = matchedProfile;
-        console.log(`[webhook/whatsapp] Matched sender profile: ${senderProfile.nickname || senderProfile.full_name}`);
-      }
-    }
-
     // Look for group in DB (default to Texas Buds or fallback to first group)
     const { data: groups, error: groupsError } = await supabaseAdmin
       .from('groups')
@@ -238,11 +220,11 @@ export async function POST(req: Request) {
     // ── 4. AI Invocations & Dispatch ────────────────────────────────────────
     let text = '';
     try {
-      const senderName = senderProfile?.nickname || senderProfile?.full_name || body.senderData?.senderName || 'Someone';
+      const senderName = body.senderData?.senderName || 'A group member';
       const promptText = `Message from ${senderName}: ${incomingMessage}`;
 
       const result = await generateText({
-        model: googleProvider('gemini-2.5-flash'),
+        model: googleProvider('gemini-3.5-flash'),
         system: buildGroupAssistantPrompt(dbContext),
         prompt: promptText,
       });
