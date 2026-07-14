@@ -1,0 +1,20 @@
+name: WhatsApp Daily Digest
+
+on:
+  # 1. ALLOWS MANUAL CLICKING IN GITHUB UI (CRITICAL):
+  workflow_dispatch:
+  
+  # 2. RUNS AUTOMATICALLY EVERY DAY AT 13:00 UTC (8:00 AM CDT):
+  schedule:
+    - cron: '0 13 * * *'
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger WhatsApp Digest API Endpoint
+        run: |
+          curl -X POST https://beyond-yesterday-app.vercel.app/api/cron/whatsapp-digest \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail --show-error --silent
