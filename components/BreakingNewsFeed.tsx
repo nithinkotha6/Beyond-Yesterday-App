@@ -2,20 +2,29 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Newspaper, Trash2, Check, X } from 'lucide-react';
-import { approveActivityAction, rejectActivityAction, deleteActivityAction } from '@/app/actions/vote';
+import { ChevronRight, Newspaper, Check, X, MoreHorizontal } from 'lucide-react';
+import { processVerificationVote, deleteActivityAction } from '@/app/actions/vote';
 import UserAvatar from './UserAvatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 export type FeedItem = {
-  id: string | number;
-  name: string;        // display name (nickname ?? full_name)
+  id:          string | number;
+  name:        string;        // display name (nickname ?? full_name)
+  full_name?:  string;
+  nickname?:   string;
   avatar_url?: string;
-  message: string;        // NL sentence
+  message:     string;        // NL sentence
   relativeTime: string;       // "2h ago", "Yesterday", "Jul 4"
-  status: 'pending' | 'verified' | 'rejected';
-  user_id: string;        // log owner ID
-  vote_count: number;        // number of approvals
-  hasVoted: boolean;       // has the logged-in user approved?
+  status:      'pending' | 'verified' | 'rejected';
+  user_id:     string;        // log owner ID
+  vote_count:  number;        // number of approvals
+  hasVoted:    boolean;       // has the logged-in user approved?
 };
 
 interface BreakingNewsFeedProps {
@@ -24,49 +33,23 @@ interface BreakingNewsFeedProps {
 }
 
 /**
- * Real-time Breaking News feed — interactive scrollable ledger list
- * with peer approvals, peer rejections, and author deletion options.
+ * Real-time activities feed — interactive scrollable ledger list
+ * with peer approvals, peer rejections, and author ellipsis menu option deletion.
  */
 export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsFeedProps) {
   const router = useRouter();
   const [isPendingAction, startTransition] = useTransition();
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [deletingItem, setDeletingItem] = useState<FeedItem | null>(null);
 
-  // Local state to track optimistic approvals
-  const [localApprovals, setLocalApprovals] = useState<Record<string, { count: number; approved: boolean }>>({});
-
-  const hideItem = (id: string) => {
-    setHiddenIds((prev) => {
-      const next = new Set(prev);
-      next.add(String(id));
-      return next;
-    });
-  };
-
-  const handleApprove = (logId: string | number, logOwnerId: string) => {
+  const handleApprove = (logId: string | number) => {
     if (isPendingAction) return;
 
-    // Optimistic state
-    setLocalApprovals((prev) => ({
-      ...prev,
-      [logId]: {
-        count: (localApprovals[logId]?.count ?? items.find(i => i.id === logId)?.vote_count ?? 0) + 1,
-        approved: true,
-      }
-    }));
-
     startTransition(async () => {
-      const res = await approveActivityAction(String(logId), currentUserId, logOwnerId);
+      const res = await processVerificationVote({ logId: String(logId), vote: 'approve' });
       if (res.success) {
         router.refresh();
       } else {
         alert(res.error);
-        // Rollback optimistic state
-        setLocalApprovals((prev) => {
-          const next = { ...prev };
-          delete next[logId];
-          return next;
-        });
       }
     });
   };
@@ -74,21 +57,12 @@ export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsF
   const handleReject = (logId: string | number) => {
     if (isPendingAction) return;
 
-    // Optimistic hide
-    hideItem(String(logId));
-
     startTransition(async () => {
-      const res = await rejectActivityAction(String(logId), currentUserId);
+      const res = await processVerificationVote({ logId: String(logId), vote: 'reject' });
       if (res.success) {
         router.refresh();
       } else {
         alert(res.error);
-        // Restore/Rollback
-        setHiddenIds((prev) => {
-          const next = new Set(prev);
-          next.delete(String(logId));
-          return next;
-        });
       }
     });
   };
@@ -96,26 +70,17 @@ export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsF
   const handleDelete = (logId: string | number) => {
     if (isPendingAction) return;
 
-    // Optimistic hide
-    hideItem(String(logId));
-
     startTransition(async () => {
       const res = await deleteActivityAction(String(logId), currentUserId);
       if (res.success) {
         router.refresh();
       } else {
         alert(res.error);
-        // Restore/Rollback
-        setHiddenIds((prev) => {
-          const next = new Set(prev);
-          next.delete(String(logId));
-          return next;
-        });
       }
     });
   };
 
-  const visibleItems = items.filter((item) => !hiddenIds.has(String(item.id)) && item.status !== 'rejected');
+  const visibleItems = items.filter((item) => item.status !== 'rejected');
   const hasItems = visibleItems.length > 0;
 
   return (
@@ -130,18 +95,16 @@ export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsF
               const isPending = item.status === 'pending';
               const isOwner = String(item.user_id) === String(currentUserId);
 
-              // Read approval states merging local overrides
-              const approvedState = localApprovals[item.id] || {
-                count: item.vote_count,
-                approved: item.hasVoted,
-              };
-
               return (
                 <li key={item.id} className="flex items-center justify-between gap-4 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
                   {/* Left Side: Avatar + Message */}
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <UserAvatar
-                      user={{ avatar_url: item.avatar_url, full_name: item.name }}
+                      user={{
+                        avatar_url: item.avatar_url,
+                        full_name: item.full_name,
+                        nickname: item.nickname,
+                      }}
                       size="md"
                     />
                     <div className="min-w-0">
@@ -164,31 +127,36 @@ export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsF
                     </div>
                   </div>
 
-                  {/* Right Side: Action buttons */}
+                  {/* Right Side: Action buttons or More options ellipsis */}
                   <div className="flex-shrink-0 flex items-center gap-1.5 ml-auto">
-                    {isPending ? (
-                      <div className="flex items-center gap-2">
-                        {/* Approve (✓) */}
-                        {approvedState.approved ? (
-                          <span
-                            className="p-2 rounded-full text-emerald-600 bg-emerald-50 select-none flex items-center justify-center"
-                            title={`Approved (${approvedState.count}/3)`}
-                          >
+                    {isOwner ? (
+                      // Subtle ellipsis More Options button
+                      <button
+                        onClick={() => setDeletingItem(item)}
+                        className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center animate-in fade-in"
+                        type="button"
+                        title="More Options"
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+                    ) : isPending ? (
+                      // Peer voting options (Approve / Reject)
+                      <div className="flex items-center gap-1.5">
+                        {item.hasVoted ? (
+                          <span className="p-2 rounded-full text-emerald-600 bg-emerald-50 select-none flex items-center justify-center animate-in scale-in" title={`Approved (${item.vote_count}/3)`}>
                             <Check size={16} strokeWidth={3} />
                           </span>
                         ) : (
                           <button
-                            onClick={() => handleApprove(item.id, item.user_id)}
-                            disabled={isPendingAction || isOwner}
+                            onClick={() => handleApprove(item.id)}
+                            disabled={isPendingAction}
                             className="p-2 rounded-full text-indigo-600 hover:bg-slate-100 transition-colors active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center justify-center"
                             type="button"
-                            title={isOwner ? "You cannot approve your own activity" : `Approve (${approvedState.count}/3)`}
+                            title={`Approve (${item.vote_count}/3)`}
                           >
                             <Check size={16} strokeWidth={3} />
                           </button>
                         )}
-
-                        {/* Reject (✗) */}
                         <button
                           onClick={() => handleReject(item.id)}
                           disabled={isPendingAction}
@@ -198,32 +166,8 @@ export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsF
                         >
                           <X size={16} strokeWidth={3} />
                         </button>
-
-                        {/* Delete (🗑) */}
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          disabled={isPendingAction || !isOwner}
-                          className="p-2 rounded-full text-red-500 hover:bg-slate-100 transition-colors active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer flex items-center justify-center"
-                          type="button"
-                          title={isOwner ? "Delete" : "Only the author can delete this activity"}
-                        >
-                          <Trash2 size={16} />
-                        </button>
                       </div>
-                    ) : (
-                      // For verified logs, only the author can delete their own activity
-                      isOwner && (
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          disabled={isPendingAction}
-                          className="p-2 rounded-full text-red-500 hover:bg-slate-100 transition-colors active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center"
-                          type="button"
-                          title="Delete verified activity"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )
-                    )}
+                    ) : null}
                   </div>
                 </li>
               );
@@ -239,6 +183,48 @@ export default function BreakingNewsFeed({ items, currentUserId }: BreakingNewsF
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={!!deletingItem} onOpenChange={(open) => { if (!open) setDeletingItem(null); }}>
+        <DialogContent className="bg-white max-w-sm p-5 rounded-2xl shadow-xl border border-slate-100 flex flex-col gap-4">
+          <DialogHeader className="gap-1.5">
+            <DialogTitle className="text-base font-bold text-[#111827]">Delete Activity</DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Are you sure you want to permanently delete this activity record? This will scrub it from the charts and leaderboards.
+            </DialogDescription>
+          </DialogHeader>
+
+          {deletingItem && (
+            <div className="py-2.5 px-3 border border-slate-100 rounded-xl bg-slate-50 text-slate-700">
+              <p className="text-xs font-semibold leading-snug">{deletingItem.message}</p>
+              <p className="text-[10px] text-slate-400 mt-1 tabular-nums">{deletingItem.relativeTime}</p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2.5 mt-2">
+            <button
+              onClick={() => setDeletingItem(null)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition active:scale-95 cursor-pointer"
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                if (deletingItem) {
+                  handleDelete(deletingItem.id);
+                  setDeletingItem(null);
+                }
+              }}
+              disabled={isPendingAction}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+              type="button"
+            >
+              🗑 Delete Activity Record
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <a
         href="#"

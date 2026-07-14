@@ -5,10 +5,10 @@
  */
 export const METRIC_PILLS = [
   {
-    id: 'long_run',
-    label: 'Long Run',
-    unit: 'mi',
-    isCumulative: true,
+    id: 'top_golf',
+    label: 'Top Golf Shot',
+    unit: 'Yards',
+    isCumulative: false,
     isBoolean: false,
     bg: 'bg-[#EAFCDB]', color: 'text-[#1E1E1E]', activeBg: 'bg-[#BDEEA0]',
   },

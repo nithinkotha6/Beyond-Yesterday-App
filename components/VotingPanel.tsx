@@ -1,6 +1,7 @@
 import { ThumbsUp, ClipboardList } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import VoteButton from './VoteButton';
+import UserAvatar from './UserAvatar';
 
 type PendingLog = {
   id: string;
@@ -9,7 +10,11 @@ type PendingLog = {
   metric_slug: string;
   user_id: string;
   logged_at: string;
-  profiles: { full_name: string | null } | null;
+  profiles: {
+    full_name: string | null;
+    nickname: string | null;
+    avatar_url: string | null;
+  } | null;
   vote_count: number;
 };
 
@@ -38,7 +43,7 @@ export default async function VotingPanel({
       metric_slug,
       user_id,
       logged_at,
-      profiles!inner ( full_name )
+      profiles!inner ( id, full_name, nickname, avatar_url )
     `)
     .eq('group_id', groupId)
     .eq('status', 'pending')
@@ -93,7 +98,7 @@ export default async function VotingPanel({
       {/* Pending log list */}
       <ul className="flex flex-col gap-3" aria-label="Pending activities for review">
         {pending.map((log) => {
-          const name  = log.profiles?.full_name?.split(' ')[0] ?? 'Athlete';
+          const name  = log.profiles?.nickname || log.profiles?.full_name?.split(' ')[0] || 'Athlete';
           const slug  = log.metric_slug.replace(/_/g, ' ');
           const date  = new Date(log.logged_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const hasVoted = myVotedSet.has(log.id);
@@ -103,12 +108,15 @@ export default async function VotingPanel({
               key={log.id}
               className="flex items-center gap-3 rounded-2xl bg-[#F7F8FA] px-4 py-3"
             >
-              {/* Avatar initial */}
-              <div className="w-8 h-8 rounded-full bg-[#1A1A1A] flex-shrink-0 flex items-center justify-center">
-                <span className="text-[#CEFF00] text-xs font-black">
-                  {log.profiles?.full_name?.charAt(0)?.toUpperCase() ?? '?'}
-                </span>
-              </div>
+              {/* Reusable UserAvatar */}
+              <UserAvatar
+                user={{
+                  avatar_url: log.profiles?.avatar_url,
+                  full_name: log.profiles?.full_name,
+                  nickname: log.profiles?.nickname,
+                }}
+                size="sm"
+              />
 
               {/* Info */}
               <div className="flex-1 min-w-0">

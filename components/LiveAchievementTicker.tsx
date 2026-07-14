@@ -21,10 +21,10 @@ function formatAchievement(log: LogRow): string {
   const unit = log.unit ?? '';
 
   switch (slug) {
-    case 'long_run':
-      return val >= 10
-        ? `${name} crushed a ${val} ${unit} long run today 🏃‍♂️🔥`
-        : `${name} knocked out a ${val} ${unit} run 🏃`;
+    case 'top_golf':
+      return val >= 250
+        ? `${name} hit an absolute bomb! ${val} ${unit} drive at Top Golf today ⛳🔥`
+        : `${name} hit a ${val} ${unit} shot at Top Golf ⛳`;
 
     case 'weight':
       return `${name} checked in at ${val} ${unit} ⚖️`;

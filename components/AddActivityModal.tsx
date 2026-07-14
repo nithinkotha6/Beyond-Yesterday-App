@@ -44,11 +44,11 @@ export default function AddActivityModal({ userId, groupId }: AddActivityModalPr
   const [manualCaption, setManualCaption] = useState('');
 
   const activePill = METRIC_PILLS.find((p) => p.id === selectedMetric);
-  const isEnduranceMetric = selectedMetric === 'long_run' || selectedMetric === 'underwater_swim';
+  const isEnduranceMetric = selectedMetric === 'underwater_swim';
 
   function handleOpen() {
     setOpen(true);
-    setMode('ai');
+    setMode('manual');
     setText('');
     setSelectedMetric('');
     setManualValue('');
@@ -125,7 +125,7 @@ export default function AddActivityModal({ userId, groupId }: AddActivityModalPr
 
   // Dynamic placeholders
   const placeholderHints: Partial<Record<MetricSlug, string>> = {
-    long_run:       '"I just ran 6.2 miles at 8 min/mi"',
+    top_golf:       '"I hit a 275-yard drive at Top Golf today"',
     weight:         '"Weighed in at 185 lbs this morning"',
     highest_steps:  '"Walked 18,432 steps today"',
     marathon:       '"Finished the marathon in 4 hrs 12 mins"',
@@ -171,22 +171,6 @@ export default function AddActivityModal({ userId, groupId }: AddActivityModalPr
               type="button"
               disabled={isPending}
               onClick={() => {
-                setMode('ai');
-                setResult(null);
-              }}
-              className={`flex-grow py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                mode === 'ai'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-slate-500 hover:text-gray-800'
-              }`}
-            >
-              <Sparkles size={12} />
-              AI Assist
-            </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => {
                 setMode('manual');
                 setResult(null);
               }}
@@ -198,6 +182,22 @@ export default function AddActivityModal({ userId, groupId }: AddActivityModalPr
             >
               <ClipboardList size={12} />
               Manual Log
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => {
+                setMode('ai');
+                setResult(null);
+              }}
+              className={`flex-grow py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                mode === 'ai'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-slate-500 hover:text-gray-800'
+              }`}
+            >
+              <Sparkles size={12} />
+              AI Assist
             </button>
           </div>
 

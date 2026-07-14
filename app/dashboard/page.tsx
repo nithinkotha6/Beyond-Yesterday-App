@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { cookies }   from 'next/headers';
 import { redirect }  from 'next/navigation';
+import { createClient as createBaseClient } from '@supabase/supabase-js';
 import { createClient }  from '@/lib/supabase/server';
 import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 import { METRIC_PILLS, RANGE_OPTIONS, type MetricSlug, type RangeValue } from '@/lib/metrics';
@@ -31,10 +32,10 @@ function formatActivityMessage(log: FeedRow): string {
   const slug = log.metric_slug ?? '';
 
   switch (slug) {
-    case 'long_run':
-      return val >= 10
-        ? `${name} crushed a ${val} ${unit} long run 🏃‍♂️🔥`
-        : `${name} ran ${val} ${unit} 🏃`;
+    case 'top_golf':
+      return val >= 250
+        ? `${name} hit an absolute bomb! ${val} ${unit} drive at Top Golf ⛳🔥`
+        : `${name} hit a ${val} ${unit} shot at Top Golf ⛳`;
 
     case 'weight':
       return `${name} logged a ${val} ${unit} body weight check-in ⚖️`;
@@ -104,8 +105,8 @@ export default async function DashboardPage({
   const params = await searchParams;
 
   const validSlugs   = METRIC_PILLS.map((p) => p.id) as string[];
-  const rawMetric    = params.metric ?? 'long_run';
-  const activeMetric = validSlugs.includes(rawMetric) ? (rawMetric as MetricSlug) : 'long_run';
+  const rawMetric    = params.metric ?? 'top_golf';
+  const activeMetric = validSlugs.includes(rawMetric) ? (rawMetric as MetricSlug) : 'top_golf';
 
   const validRanges  = RANGE_OPTIONS.map((r) => r.value) as string[];
   const rawRange     = params.range ?? '7d';
@@ -115,6 +116,47 @@ export default async function DashboardPage({
   const activeRangeLabel = RANGE_OPTIONS.find((r) => r.value === activeRange)?.label ?? 'Last 7 Days';
 
   const supabase = await createClient();
+
+  // ── Database Auto-Migration: transition long_run -> top_golf ──────────────────
+  try {
+    const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? createBaseClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          { auth: { persistSession: false, autoRefreshToken: false } }
+        )
+      : supabase;
+
+    const { data: hasTopGolf } = await supabaseAdmin
+      .from('metrics_config')
+      .select('slug')
+      .eq('slug', 'top_golf')
+      .maybeSingle();
+
+    if (!hasTopGolf) {
+      console.log('[dashboard] migrating metrics_config long_run -> top_golf');
+      // Insert top_golf config first
+      await supabaseAdmin.from('metrics_config').insert({
+        slug: 'top_golf',
+        display_name: 'Top Golf Shot',
+        unit: 'Yards',
+        sort_order: 'desc',
+        xp_reward: 50
+      });
+      // Migrate all metric_logs slugs and units
+      await supabaseAdmin
+        .from('metric_logs')
+        .update({ metric_slug: 'top_golf', unit: 'Yards' })
+        .eq('metric_slug', 'long_run');
+      // Delete old long_run config
+      await supabaseAdmin
+        .from('metrics_config')
+        .delete()
+        .eq('slug', 'long_run');
+    }
+  } catch (migErr) {
+    console.error('[dashboard] auto-migration error:', migErr);
+  }
 
   // ── Diagnostic logging — visible in Next.js terminal ────────────────────
   console.log('[dashboard] session groupId :', groupId);
@@ -136,6 +178,8 @@ export default async function DashboardPage({
   const feedItems: FeedItem[] = feedRows.map((log) => ({
     id:           log.id,
     name:         log.profiles?.nickname ?? log.profiles?.full_name ?? 'Athlete',
+    full_name:    log.profiles?.full_name ?? '',
+    nickname:     log.profiles?.nickname ?? '',
     avatar_url:   log.profiles?.avatar_url ?? '',
     message:      formatActivityMessage(log),
     relativeTime: relativeTime(log.logged_at),

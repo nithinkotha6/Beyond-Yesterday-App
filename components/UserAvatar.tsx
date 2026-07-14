@@ -40,10 +40,10 @@ const SIZE_MAP = {
  * Next.js serves anything in `public/` at the root path with no import needed.
  */
 function getStaticAvatarPath(user: UserAvatarProps['user']): string | null {
-  const rawName = user.full_name || '';
+  const rawName = user.full_name || user.nickname || '';
   if (!rawName) return null;
 
-  // Use the first token of the full name — handles "Nithin Kotha" → "nithin"
+  // Use the first token of the full name or nickname
   const firstName = rawName.trim().split(/\s+/)[0].toLowerCase();
   if (!firstName) return null;
 

@@ -9,7 +9,7 @@ import CheerButton from '@/components/CheerButton';
 
 // Curated list of metrics for ranking
 const LEADERBOARD_METRICS = [
-  { id: 'long_run',         label: 'Long Run',          unit: 'mi',     isCumulative: true  },
+  { id: 'top_golf',         label: 'Top Golf Shot',     unit: 'Yards',  isCumulative: false },
   { id: 'weight',           label: 'Weight',            unit: 'lbs',    isCumulative: false },
   { id: 'highest_steps',   label: 'Highest Steps',     unit: 'steps',  isCumulative: false },
   { id: 'marathon',         label: 'Marathon',          unit: 'hrs',    isCumulative: false },
@@ -36,7 +36,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
 
   // ── Search Parameter Resolution ─────────────────────────────────────────
   const params = await searchParams;
-  const rawMetric = params.metric ?? 'long_run';
+  const rawMetric = params.metric ?? 'top_golf';
   const metricPill = LEADERBOARD_METRICS.find((m) => m.id === rawMetric) ?? LEADERBOARD_METRICS[0];
   const activeMetric = metricPill.id;
 

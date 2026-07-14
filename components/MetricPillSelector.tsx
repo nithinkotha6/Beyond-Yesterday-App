@@ -7,7 +7,7 @@ export { METRIC_PILLS, type MetricSlug };
 
 // Emoji icons for each metric — lightweight, no icon library needed
 const PILL_EMOJIS: Record<string, string> = {
-  long_run:       '🏃',
+  top_golf:       '⛳',
   weight:         '⚖️',
   highest_steps:  '👟',
   marathon:       '🏅',
