@@ -49,8 +49,12 @@ export async function logDirectActivity(
   });
  
   if (insertErr) {
-    console.error('[logDirectActivity] Insert error:', insertErr);
-    return { success: false, error: 'Failed to save activity. Please try again.' };
+    console.error('[logDirectActivity] Insert error details:', {
+      message: insertErr.message,
+      code: insertErr.code,
+      details: insertErr.details,
+    });
+    return { success: false, error: `Database error: ${insertErr.message} (Code: ${insertErr.code})` };
   }
  
   revalidatePath('/', 'layout');
@@ -111,15 +115,23 @@ export async function logActivityManual(
       });
 
       if (retryErr) {
-        console.error('[logActivityManual] Retry insert error:', retryErr);
-        return { success: false, error: 'Failed to save activity. Please try again.' };
+        console.error('[logActivityManual] Retry insert error details:', {
+          message: retryErr.message,
+          code: retryErr.code,
+          details: retryErr.details,
+        });
+        return { success: false, error: `Database error (retry): ${retryErr.message} (Code: ${retryErr.code})` };
       }
       revalidatePath('/', 'layout');
       return { success: true, metric_slug: metricSlug, value, unit };
     }
-
-    console.error('[logActivityManual] Insert error:', insertErr);
-    return { success: false, error: 'Failed to save activity. Please try again.' };
+ 
+    console.error('[logActivityManual] Insert error details:', {
+      message: insertErr.message,
+      code: insertErr.code,
+      details: insertErr.details,
+    });
+    return { success: false, error: `Database error: ${insertErr.message} (Code: ${insertErr.code})` };
   }
 
   revalidatePath('/', 'layout');

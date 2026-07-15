@@ -138,8 +138,12 @@ User text: "${rawText}"`,
   });
  
   if (insertErr) {
-    console.error('[ingest] Insert error:', insertErr);
-    return { success: false, error: 'Failed to save activity. Please try again.' };
+    console.error('[ingest] Insert error details:', {
+      message: insertErr.message,
+      code: insertErr.code,
+      details: insertErr.details,
+    });
+    return { success: false, error: `Database error: ${insertErr.message} (Code: ${insertErr.code})` };
   }
  
   const { revalidatePath } = await import('next/cache');
