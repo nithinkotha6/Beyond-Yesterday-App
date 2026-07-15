@@ -7,12 +7,126 @@ import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 import UserAvatar from '@/components/UserAvatar';
 import CheerButton from '@/components/CheerButton';
 
-function LaurelBranch({ className }: { className?: string }) {
+function PodiumWreath({ className }: { className?: string }) {
+  // Generate 8 pairs of leaves along the curve
+  const nodes = [];
+  const nodeCount = 9;
+  for (let i = 0; i < nodeCount; i++) {
+    const t = i / (nodeCount - 1);
+    // Angle from bottom-left (approx 1.75 rad) to top-left (approx 4.1 rad)
+    const angle = 1.75 + t * 2.35;
+    const radius = 62;
+    const x = 100 + radius * Math.cos(angle);
+    const y = 92 + radius * Math.sin(angle);
+    const rot = (angle * 180) / Math.PI + 90;
+    nodes.push({ x, y, rot });
+  }
+
   return (
-    <svg className={className} viewBox="0 0 24 48" fill="currentColor">
-      <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
-      <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
-      <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
+    <svg className={className} viewBox="0 0 200 200" fill="currentColor">
+      {/* Left Branch */}
+      <g>
+        {/* Stem curve */}
+        <path 
+          d="M 100,162 C 58,162 33,130 33,92 C 33,54 58,22 100,22" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          opacity="0.85" 
+        />
+        {/* Leaf pairs */}
+        {nodes.map((node, i) => (
+          <g key={i} transform={`translate(${node.x}, ${node.y}) rotate(${node.rot})`}>
+            {/* Outer leaf */}
+            <path 
+              d="M0,0 C-4,-8 -9,-15 -3,-22 C1,-22 4,-12 0,0" 
+              transform="rotate(-20) scale(0.95)"
+            />
+            {/* Inner leaf */}
+            <path 
+              d="M0,0 C4,-8 9,-15 3,-22 C-1,-22 -4,-12 0,0" 
+              transform="rotate(20) scale(0.95)"
+            />
+          </g>
+        ))}
+      </g>
+
+      {/* Right Branch (Mirrored across x = 100 center line) */}
+      <g transform="translate(200, 0) scale(-1, 1)">
+        {/* Stem curve */}
+        <path 
+          d="M 100,162 C 58,162 33,130 33,92 C 33,54 58,22 100,22" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          opacity="0.85" 
+        />
+        {/* Leaf pairs */}
+        {nodes.map((node, i) => (
+          <g key={i} transform={`translate(${node.x}, ${node.y}) rotate(${node.rot})`}>
+            {/* Outer leaf */}
+            <path 
+              d="M0,0 C-4,-8 -9,-15 -3,-22 C1,-22 4,-12 0,0" 
+              transform="rotate(-20) scale(0.95)"
+            />
+            {/* Inner leaf */}
+            <path 
+              d="M0,0 C4,-8 9,-15 3,-22 C-1,-22 -4,-12 0,0" 
+              transform="rotate(20) scale(0.95)"
+            />
+          </g>
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+function RibbonBanner({ 
+  className, 
+  text, 
+  colorMain = '#EF4444', 
+  colorDark = '#B91C1C', 
+  colorDarkest = '#7F1D1D' 
+}: { 
+  className?: string; 
+  text: string;
+  colorMain?: string;
+  colorDark?: string;
+  colorDarkest?: string;
+}) {
+  return (
+    <svg className={className} viewBox="0 0 200 60">
+      {/* Left Swallow-Tail Wing */}
+      <polygon points="50,15 15,15 28,28 15,40 50,40" fill={colorDark} />
+      
+      {/* Right Swallow-Tail Wing */}
+      <polygon points="150,15 185,15 172,28 185,40 150,40" fill={colorDark} />
+      
+      {/* Left Shadow Fold triangle */}
+      <polygon points="50,40 62,40 62,48" fill={colorDarkest} />
+      
+      {/* Right Shadow Fold triangle */}
+      <polygon points="150,40 138,40 138,48" fill={colorDarkest} />
+      
+      {/* Center Main Banner Plate */}
+      <polygon points="58,8 142,8 142,40 58,40" fill={colorMain} />
+      
+      {/* Banner Text overlay */}
+      <text 
+        x="100" 
+        y="26" 
+        fill="white" 
+        fontSize="9" 
+        fontWeight="900" 
+        letterSpacing="1.2" 
+        textAnchor="middle" 
+        dominantBaseline="middle"
+        className="font-sans select-none tracking-widest font-black"
+      >
+        {text}
+      </text>
     </svg>
   );
 }
@@ -309,24 +423,29 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-1 w-1/3 max-w-[150px]">
           {secondPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="relative flex items-center justify-center p-2 mb-3">
-                {/* Left Wreath Branch */}
-                <LaurelBranch className="absolute -left-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#94A3B8] pointer-events-none" />
-                
-                {/* Center Profile Avatar */}
+              <div className="relative flex flex-col items-center justify-center w-36 h-40 mb-2">
+                {/* 1. The Laurel Wreath Background */}
+                <PodiumWreath className="absolute inset-0 w-full h-full text-[#94A3B8] drop-shadow-md z-0 pointer-events-none" />
+
+                {/* 2. Center Profile Avatar */}
                 <div className="z-10 relative">
                   <UserAvatar 
                     user={secondPlace.profile} 
                     size="xl" 
-                    className="shadow-md border-4 border-slate-300 hover:scale-105"
+                    className="shadow-md border-4 border-slate-300 hover:scale-105 transition-transform"
                   />
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
-                    <RankBadge rank={2} />
-                  </div>
                 </div>
 
-                {/* Right Wreath Branch (Mirrored) */}
-                <LaurelBranch className="absolute -right-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#94A3B8] pointer-events-none transform scale-x-[-1]" />
+                {/* 3. The Folded Award Ribbon */}
+                <div className="z-20 -mt-2.5 w-full flex justify-center">
+                  <RibbonBanner 
+                    text="2ND PLACE" 
+                    className="w-full h-10 drop-shadow-md" 
+                    colorMain="#64748B" 
+                    colorDark="#475569" 
+                    colorDarkest="#334155" 
+                  />
+                </div>
               </div>
               <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
                 {secondPlace.profile.nickname || secondPlace.profile.full_name}
@@ -359,25 +478,30 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-2 w-1/3 max-w-[180px]">
           {firstPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <div className="relative flex items-center justify-center p-2 mb-3">
-                {/* Left Wreath Branch */}
-                <LaurelBranch className="absolute -left-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#FACC15] pointer-events-none" />
-                
-                {/* Center Profile Avatar */}
+              <div className="relative flex flex-col items-center justify-center w-40 h-44 mb-2">
+                {/* 1. The Laurel Wreath Background */}
+                <PodiumWreath className="absolute inset-0 w-full h-full text-[#FACC15] drop-shadow-md z-0 pointer-events-none" />
+
+                {/* 2. Center Profile Avatar */}
                 <div className="z-10 relative">
                   <span className="absolute -top-5 left-1/2 -translate-x-1/2 z-20 text-xl animate-bounce" role="img" aria-label="Gold Trophy">🏆</span>
                   <UserAvatar 
                     user={firstPlace.profile} 
                     size="2xl" 
-                    className="shadow-xl border-4 border-yellow-400 hover:scale-105"
+                    className="shadow-xl border-4 border-yellow-400 hover:scale-105 transition-transform"
                   />
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
-                    <RankBadge rank={1} />
-                  </div>
                 </div>
 
-                {/* Right Wreath Branch (Mirrored) */}
-                <LaurelBranch className="absolute -right-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#FACC15] pointer-events-none transform scale-x-[-1]" />
+                {/* 3. The Folded Award Ribbon */}
+                <div className="z-20 -mt-2.5 w-full flex justify-center">
+                  <RibbonBanner 
+                    text="CHAMPION" 
+                    className="w-full h-11 drop-shadow-md" 
+                    colorMain="#EF4444" 
+                    colorDark="#B91C1C" 
+                    colorDarkest="#7F1D1D" 
+                  />
+                </div>
               </div>
               <span className="text-xs font-black text-[#111827] truncate max-w-full mb-2">
                 {firstPlace.profile.nickname || firstPlace.profile.full_name}
@@ -411,24 +535,29 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-3 w-1/3 max-w-[150px]">
           {thirdPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="relative flex items-center justify-center p-2 mb-3">
-                {/* Left Wreath Branch */}
-                <LaurelBranch className="absolute -left-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#D97706] pointer-events-none" />
-                
-                {/* Center Profile Avatar */}
+              <div className="relative flex flex-col items-center justify-center w-36 h-40 mb-2">
+                {/* 1. The Laurel Wreath Background */}
+                <PodiumWreath className="absolute inset-0 w-full h-full text-[#D97706] drop-shadow-md z-0 pointer-events-none" />
+
+                {/* 2. Center Profile Avatar */}
                 <div className="z-10 relative">
                   <UserAvatar 
                     user={thirdPlace.profile} 
                     size="xl" 
-                    className="shadow-md border-4 border-amber-600 hover:scale-105"
+                    className="shadow-md border-4 border-amber-600 hover:scale-105 transition-transform"
                   />
-                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
-                    <RankBadge rank={3} />
-                  </div>
                 </div>
 
-                {/* Right Wreath Branch (Mirrored) */}
-                <LaurelBranch className="absolute -right-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#D97706] pointer-events-none transform scale-x-[-1]" />
+                {/* 3. The Folded Award Ribbon */}
+                <div className="z-20 -mt-2.5 w-full flex justify-center">
+                  <RibbonBanner 
+                    text="3RD PLACE" 
+                    className="w-full h-10 drop-shadow-md" 
+                    colorMain="#B45309" 
+                    colorDark="#92400E" 
+                    colorDarkest="#78350F" 
+                  />
+                </div>
               </div>
               <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
                 {thirdPlace.profile.nickname || thirdPlace.profile.full_name}
