@@ -2,8 +2,10 @@
 
 import { googleProvider } from '@/lib/ai/google';
 import { z }      from 'zod';
-import { createClient } from '@/lib/supabase/server';
-
+import { createAdminClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { SESSION_COOKIE, decodeSession } from '@/lib/session';
+ 
 /**
  * Zod schema for Gemini structured extraction.
  * v2 schema: metric_slug stored directly on the log row.
@@ -20,11 +22,11 @@ const MetricSchema = z.object({
     .string()
     .describe('Unit of measurement, e.g. miles, kg, mph, lbs, kcal, reps'),
 });
-
+ 
 export type IngestResult =
   | { success: true; metric_slug: string; value: number; unit: string }
   | { success: false; error: string };
-
+ 
 /**
  * Server Action: parse natural language → Gemini structured JSON → Supabase INSERT.
  * userId and groupId come from the HTTP-only session cookie (passed from dashboard).
@@ -43,7 +45,26 @@ export async function ingestActivity(
   if (!userId || !groupId) {
     return { success: false, error: 'Session expired. Please return to the home screen.' };
   }
-
+ 
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = token ? await decodeSession(token) : null;
+  if (!session || String(session.userId) !== String(userId) || String(session.groupId) !== String(groupId)) {
+    return { success: false, error: 'Unauthorized: Session credentials mismatch.' };
+  }
+ 
+  const supabase = createAdminClient();
+ 
+  // Fetch active configurations and dynamic user metrics
+  const { data: configs } = await supabase.from('metrics_config').select('slug, display_name, unit');
+  const { data: customs } = await supabase.from('metric_definitions').select('id, name, unit');
+ 
+  const validConfigs = configs || [];
+  const validCustoms = customs || [];
+ 
+  const configHints = validConfigs.map(c => `- "${c.display_name}" (use slug: "${c.slug}", unit: "${c.unit}")`).join('\n');
+  const customHints = validCustoms.map(c => `- "${c.name}" (use UUID: "${c.id}", unit: "${c.unit}")`).join('\n');
+ 
   // ── 1. Structured extraction via Gemini ──────────────────────────────────
   let extracted: z.infer<typeof MetricSchema>;
   try {
@@ -51,21 +72,29 @@ export async function ingestActivity(
     const { text } = await generateText({
       model: googleProvider('gemini-3.5-flash'),
       prompt: `You are a fitness data parser. Extract the metric from the user's text and return ONLY a raw JSON object with no markdown, no code fences, no explanation.
-
+ 
+You MUST map the activity to one of these valid metric slug/UUID keys:
+=== STANDARD TRACKERS ===
+${configHints}
+ 
+=== CUSTOM DYNAMIC TRACKERS ===
+${customHints}
+=========================
+ 
 Required JSON shape:
 {
-  "metric_slug": <snake_case string, e.g. "long_run", "deadlift", "beers", "top_speed", "calories", "weight", "push_ups", "pull_ups", "squat", "sleep", "cycling_distance", "longest_swim">,
+  "metric_slug": <exact matching slug string or UUID string from valid list above>,
   "value": <number>,
-  "unit": <string, e.g. "miles", "kg", "mph", "lbs", "kcal", "reps", "hrs">
+  "unit": <string, matching the unit listed above>
 }
-
+ 
 User text: "${rawText}"`,
     });
-
+ 
     const cleaned   = text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     const parsed    = JSON.parse(cleaned);
     const validated = MetricSchema.safeParse(parsed);
-
+ 
     if (!validated.success) {
       const issues = validated.error.issues.map(i => i.message).join(', ');
       console.error('[ingest] Schema validation failed:', validated.error);
@@ -77,11 +106,28 @@ User text: "${rawText}"`,
     console.error('[ingest] Gemini error:', msg);
     return { success: false, error: `AI error: ${msg}` };
   }
-
+ 
+  // Validate extracted slug against valid configurations and custom metrics
+  const isValid = validConfigs.some(c => c.slug === extracted.metric_slug) ||
+                  validCustoms.some(c => c.id === extracted.metric_slug);
+ 
+  if (!isValid) {
+    const matchedConfig = validConfigs.find(c => c.display_name.toLowerCase() === extracted.metric_slug.toLowerCase() || c.slug.toLowerCase() === extracted.metric_slug.toLowerCase());
+    const matchedCustom = validCustoms.find(c => c.name.toLowerCase() === extracted.metric_slug.toLowerCase() || c.id.toLowerCase() === extracted.metric_slug.toLowerCase());
+ 
+    if (matchedConfig) {
+      extracted.metric_slug = matchedConfig.slug;
+      extracted.unit = matchedConfig.unit;
+    } else if (matchedCustom) {
+      extracted.metric_slug = matchedCustom.id;
+      extracted.unit = matchedCustom.unit;
+    } else {
+      return { success: false, error: `Invalid activity: "${extracted.metric_slug}" is not a recognized metric tracker.` };
+    }
+  }
+ 
   // ── 2. INSERT into metric_logs (v2 schema — metric_slug direct) ───────────
   // status defaults to 'pending' → requires 3 peer votes to become 'verified'
-  const supabase = await createClient();
-
   const { error: insertErr } = await supabase.from('metric_logs').insert({
     user_id:     userId,
     group_id:    groupId,
@@ -90,15 +136,15 @@ User text: "${rawText}"`,
     unit:        extracted.unit,
     status:      (extracted.metric_slug === 'car_top_speed' || extracted.metric_slug === 'most_beers') ? 'pending' : 'verified',
   });
-
+ 
   if (insertErr) {
     console.error('[ingest] Insert error:', insertErr);
     return { success: false, error: 'Failed to save activity. Please try again.' };
   }
-
+ 
   const { revalidatePath } = await import('next/cache');
   revalidatePath('/', 'layout');
-
+ 
   return {
     success:     true,
     metric_slug: extracted.metric_slug,

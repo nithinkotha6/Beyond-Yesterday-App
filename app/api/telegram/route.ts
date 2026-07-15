@@ -154,6 +154,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true });
   }
 
+  // Load configs & dynamic metrics
+  const { data: configs } = await supabase.from('metrics_config').select('slug, display_name, unit');
+  const { data: customs } = await supabase.from('metric_definitions').select('id, name, unit');
+ 
+  const validConfigs = configs || [];
+  const validCustoms = customs || [];
+ 
+  const isValid = validConfigs.some(c => c.slug === extracted.metric_slug) ||
+                  validCustoms.some(c => c.id === extracted.metric_slug);
+ 
+  if (!isValid) {
+    const matchedConfig = validConfigs.find(c => c.display_name.toLowerCase() === extracted.metric_slug.toLowerCase() || c.slug.toLowerCase() === extracted.metric_slug.toLowerCase());
+    const matchedCustom = validCustoms.find(c => c.name.toLowerCase() === extracted.metric_slug.toLowerCase() || c.id.toLowerCase() === extracted.metric_slug.toLowerCase());
+ 
+    if (matchedConfig) {
+      extracted.metric_slug = matchedConfig.slug;
+      extracted.unit = matchedConfig.unit;
+    } else if (matchedCustom) {
+      extracted.metric_slug = matchedCustom.id;
+      extracted.unit = matchedCustom.unit;
+    } else {
+      console.warn(`[telegram/route] Invalid activity slug: "${extracted.metric_slug}"`);
+      return NextResponse.json({ ok: true });
+    }
+  }
+ 
   // ── 7. Parameterized DB insert ────────────────────────────────────────────
   const { error: insertErr } = await supabase
     .from('metric_logs')
@@ -165,7 +191,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       unit:        extracted.unit,
       status:      (extracted.metric_slug === 'car_top_speed' || extracted.metric_slug === 'most_beers') ? 'pending' : 'verified',
     });
-
+ 
   if (insertErr) {
     console.error('[telegram/route] Insert error:', insertErr.message);
   }
