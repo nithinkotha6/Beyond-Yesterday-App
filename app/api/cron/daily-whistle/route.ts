@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+export const maxDuration = 60; // Allow up to 60 seconds for LLM processing
 import { generateText } from 'ai';
 import { googleProvider } from '@/lib/ai/google';
 import { createAdminClient } from '@/lib/supabase/server';

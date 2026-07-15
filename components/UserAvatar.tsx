@@ -87,6 +87,14 @@ export default function UserAvatar({ user, size = 'md', className = '', borderCo
 
   // Resolved image src: db url → static path → null (show initials)
   const imgSrc = isDbUrlValid ? dbUrl : staticPath;
+
+  const [prevImgSrc, setPrevImgSrc] = useState<string | null>(null);
+  if (imgSrc !== prevImgSrc) {
+    setPrevImgSrc(imgSrc);
+    setImgError(false);
+    setLoaded(false);
+  }
+
   const showImage = !!imgSrc && !imgError;
 
   const sizeClass   = SIZE_MAP[size];
