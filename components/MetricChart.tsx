@@ -17,6 +17,18 @@ interface MetricChartProps {
 }
 
 /**
+ * Helper to truncate display names: e.g. "Ashray Chowdhary" -> "Ashray C."
+ */
+function formatChartName(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0];
+  const first = parts[0];
+  const lastInitial = parts[parts.length - 1][0];
+  return `${first} ${lastInitial}.`;
+}
+
+/**
  * Custom function to generate base64 encoded SVG data URI for custom circular avatar endpoints.
  * Renders avatar image if present, otherwise displays 1-2 letter initials with athlete's line color border.
  */
@@ -29,13 +41,27 @@ const getAvatarSvgUri = (name: string, avatarUrl: string | null, color: string) 
     .toUpperCase() || '?';
 
   let content = '';
-  if (avatarUrl && avatarUrl.startsWith('http')) {
+  // Convert relative avatarUrl to absolute URL for SVG usage
+  let absoluteUrl = '';
+  if (avatarUrl) {
+    if (avatarUrl.startsWith('http')) {
+      absoluteUrl = avatarUrl;
+    } else if (avatarUrl.startsWith('/')) {
+      if (typeof window !== 'undefined') {
+        absoluteUrl = window.location.origin + avatarUrl;
+      } else {
+        absoluteUrl = avatarUrl;
+      }
+    }
+  }
+
+  if (absoluteUrl) {
     content = `
       <circle cx="12" cy="12" r="10" fill="#111827" />
       <clipPath id="clip-${encodeURIComponent(name)}">
         <circle cx="12" cy="12" r="9.5" />
       </clipPath>
-      <image href="${avatarUrl}" x="2.5" y="2.5" width="19" height="19" clip-path="url(#clip-${encodeURIComponent(name)})" />
+      <image href="${absoluteUrl}" x="2.5" y="2.5" width="19" height="19" clip-path="url(#clip-${encodeURIComponent(name)})" />
     `;
   } else {
     content = `
@@ -68,6 +94,7 @@ export default function MetricChart({
   bucketSize = 1,
 }: MetricChartProps) {
   const [isolatedUserId, setIsolatedUserId] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   console.log('[MetricChart debug] dateLabels:', JSON.stringify(dateLabels));
   console.log('[MetricChart debug] series:', JSON.stringify(series, null, 2));
@@ -234,7 +261,7 @@ export default function MetricChart({
           return {
             value: v,
             symbol: terminalSymbol,
-            symbolSize: 24,
+            symbolSize: [28, 28],
             symbolOffset: [xOffset, 0],
             itemStyle: { opacity: 1 },
           };
@@ -283,37 +310,68 @@ export default function MetricChart({
           </div>
         )}
 
-        {/* Interactive legend header to isolate lines */}
+        {/* Interactive Legend Dropdown (Pillar 2) */}
         {hasData && (
-          <div className="flex flex-wrap gap-2 mb-2">
-            {series.map((s) => {
-              const isIsolated = isolatedUserId === s.userId;
-              const latestVal = s.points.reduce((acc: number | null, val) => (val !== null ? val : acc), null);
-              return (
-                <button
-                  key={s.userId}
-                  onClick={() => {
-                    setIsolatedUserId(prev => prev === s.userId ? null : s.userId);
-                  }}
-                  className={`flex items-center gap-2 px-3 rounded-full border text-xs font-bold transition-[transform,background-color] duration-150 ease-out cursor-pointer min-h-[44px] ${
-                    isIsolated
-                      ? 'bg-[#111827] text-white border-[#111827] shadow-sm scale-102'
-                      : 'bg-[#F9FAFB] text-[#4B5563] border-[#E5E7EB] hover:bg-[#F3F4F6]'
-                  }`}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: s.color }}
-                  />
-                  <span>{s.name}</span>
-                  {latestVal !== null && (
-                    <span className={`text-[10px] font-bold tabular-nums tracking-tight ${isIsolated ? 'text-[#CEFF00]' : 'text-[#9CA3AF]'}`}>
-                      {latestVal}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="relative inline-block text-left mb-4">
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-[#4B5563] hover:bg-[#F9FAFB] active:scale-95 transition-all shadow-sm cursor-pointer"
+            >
+              <span>Filter Athletes ({isolatedUserId ? 1 : series.length}/{series.length})</span>
+              <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {isDropdownOpen && (
+              <div className="absolute left-0 mt-1.5 w-56 rounded-2xl bg-white border border-slate-200/80 shadow-lg p-2 z-35 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={() => {
+                      setIsolatedUserId(null);
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors ${
+                      !isolatedUserId
+                        ? 'bg-[#CEFF00]/10 text-gray-900'
+                        : 'text-gray-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>Show All Athletes</span>
+                    {!isolatedUserId && <span className="w-1.5 h-1.5 rounded-full bg-gray-900" />}
+                  </button>
+                  <div className="h-px bg-slate-100 my-1" />
+                  {series.map((s) => {
+                    const isSelected = isolatedUserId === s.userId;
+                    const latestVal = s.points.reduce((acc: number | null, val) => (val !== null ? val : acc), null);
+                    return (
+                      <button
+                        key={s.userId}
+                        onClick={() => {
+                          setIsolatedUserId(isSelected ? null : s.userId);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-colors ${
+                          isSelected
+                            ? 'bg-gray-950 text-white font-bold'
+                            : 'text-gray-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                          <span>{formatChartName(s.name)}</span>
+                        </div>
+                        {latestVal !== null && (
+                          <span className={`text-[10px] font-bold tabular-nums ${isSelected ? 'text-[#CEFF00]' : 'text-gray-400'}`}>
+                            {latestVal}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, ChevronLeft, ChevronRight, MessageSquare, Plus, Send, RefreshCw } from 'lucide-react';
-import { uploadAndCreateMemoryAction, addMemoryComment } from '@/app/actions/memories';
+import { Camera, ChevronLeft, ChevronRight, MessageSquare, Plus, Send, RefreshCw, Trash2 } from 'lucide-react';
+import { uploadAndCreateMemoryAction, addMemoryComment, deleteMemoryAction } from '@/app/actions/memories';
 import UserAvatar from '@/components/UserAvatar';
 import {
   Dialog,
@@ -44,8 +44,8 @@ interface MemoryComment {
 }
 
 interface MemoriesClientPageProps {
-  initialMemories: any[];
-  initialComments: any[];
+  initialMemories: Memory[];
+  initialComments: MemoryComment[];
   groupId: string;
   userId: string;
   userName: string;
@@ -140,21 +140,21 @@ export default function MemoriesClientPage({
   const slideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ── Slideshow Auto-Advance Loop ─────────────────────────────────────────
-  const startSlideshowTimer = () => {
+  const startSlideshowTimer = React.useCallback(() => {
     if (slideTimerRef.current) clearInterval(slideTimerRef.current);
     if (memories.length <= 1) return;
 
     slideTimerRef.current = setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % memories.length);
     }, 7000);
-  };
+  }, [memories]);
 
   useEffect(() => {
     startSlideshowTimer();
     return () => {
       if (slideTimerRef.current) clearInterval(slideTimerRef.current);
     };
-  }, [memories]);
+  }, [startSlideshowTimer]);
 
   // ── Show Toast Helper ───────────────────────────────────────────────────
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -246,9 +246,10 @@ export default function MemoriesClientPage({
       setIsUploadOpen(false);
       setUploadFile(null);
       setUploadPreview('');
-    } catch (err: any) {
-      console.error('Upload failed detail:', err);
-      showToast(`Upload failed: ${err.message || 'Unknown error'}`, 'error');
+    } catch (err) {
+      const error = err as Error | null;
+      console.error('Upload failed detail:', error);
+      showToast(`Upload failed: ${error?.message || 'Unknown error'}`, 'error');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -293,11 +294,31 @@ export default function MemoriesClientPage({
       setComments((prev) =>
         prev.map((c) => (c.id === optimisticComment.id ? { ...c, id: dbRes.comment.id } : c))
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       showToast('Failed to post comment', 'error');
       // Rollback optimistic comment
       setComments((prev) => prev.filter((c) => c.id !== optimisticComment.id));
+    }
+  };
+
+  const handleDeleteMemory = async (memoryId: string) => {
+    if (!confirm('Are you sure you want to delete this photo from Memories?')) return;
+    try {
+      const res = await deleteMemoryAction(memoryId, userId);
+      if (res.success) {
+        showToast('Photo deleted successfully.');
+        const updatedMemories = memories.filter((m) => m.id !== memoryId);
+        setMemories(updatedMemories);
+        if (activeIndex >= updatedMemories.length) {
+          setActiveIndex(Math.max(0, updatedMemories.length - 1));
+        }
+      } else {
+        showToast(res.error || 'Failed to delete photo', 'error');
+      }
+    } catch (err) {
+      const error = err as Error | null;
+      showToast(error?.message || 'An error occurred during deletion', 'error');
     }
   };
 
@@ -341,6 +362,17 @@ export default function MemoriesClientPage({
                 alt={activeMemory.caption || 'Memory'}
                 className="w-full h-full object-contain"
               />
+            )}
+
+            {/* Trash soft-delete button */}
+            {activeMemory.user_id === userId && (
+              <button
+                onClick={() => handleDeleteMemory(activeMemory.id)}
+                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/45 hover:bg-red-650 hover:text-white text-zinc-300 flex items-center justify-center transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-md"
+                title="Delete memory"
+              >
+                <Trash2 size={15} className="stroke-[2.5]" />
+              </button>
             )}
 
             {/* Left Manual Arrow Overlay */}

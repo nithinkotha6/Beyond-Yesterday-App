@@ -17,6 +17,7 @@ export default async function MemoriesPage() {
   const supabase = createAdminClient();
 
   // Fetch all group memories explicitly with expected columns
+  // Fetch all active group memories explicitly with expected columns
   const { data: memoriesRaw, error: memoriesErr } = await supabase
     .from('memories')
     .select(`
@@ -29,6 +30,7 @@ export default async function MemoriesPage() {
       profiles:user_id ( id, nickname, full_name, avatar_url )
     `)
     .eq('group_id', groupId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   if (memoriesErr) {
@@ -63,8 +65,8 @@ export default async function MemoriesPage() {
 
   return (
     <MemoriesClientPage
-      initialMemories={memoriesList}
-      initialComments={commentsList}
+      initialMemories={memoriesList as any}
+      initialComments={commentsList as any}
       groupId={groupId}
       userId={userId}
       userName={userName}

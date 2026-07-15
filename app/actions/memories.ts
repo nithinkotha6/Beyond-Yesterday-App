@@ -188,3 +188,42 @@ export async function addMemoryComment(memoryId: string, content: string, userId
     return { success: false, error: err.message || 'Unexpected server error.' };
   }
 }
+
+/**
+ * Server Action: Soft-deletes a memory record by setting deleted_at to current timestamp.
+ */
+export async function deleteMemoryAction(memoryId: string, userId: string) {
+  if (!memoryId || !userId) {
+    return { success: false, error: 'Missing required parameters.' };
+  }
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = token ? await decodeSession(token) : null;
+  if (!session || String(session.userId) !== String(userId)) {
+    return { success: false, error: 'Unauthorized: Session credentials mismatch.' };
+  }
+
+  try {
+    const supabase = await getAdminClient();
+
+    const { data, error } = await supabase
+      .from('memories')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', memoryId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[deleteMemoryAction] DB error:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/', 'layout');
+    return { success: true, memory: data };
+  } catch (err: any) {
+    console.error('[deleteMemoryAction] Crash details:', err);
+    return { success: false, error: err.message || 'Unexpected server error.' };
+  }
+}
