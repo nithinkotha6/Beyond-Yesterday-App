@@ -94,6 +94,19 @@ async function fetchAndProcessWearableData(connection: any) {
     const sleepVal = Math.round((6.0 + Math.random() * 3.0) * 10) / 10;
     const hrVal = Math.round(48 + Math.random() * 15);
 
+    // Truncate time and delete existing duplicate logs for the current calendar day (UTC)
+    const d = new Date();
+    const startOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
+    const endOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString();
+
+    await supabaseAdmin
+      .from('metric_logs')
+      .delete()
+      .eq('user_id', userId)
+      .in('metric_slug', ['wearable_steps', 'wearable_sleep', 'wearable_resting_hr'])
+      .gte('logged_at', startOfDay)
+      .lt('logged_at', endOfDay);
+
     const { error: insertErr } = await supabaseAdmin.from('metric_logs').insert([
       {
         user_id: userId,
@@ -315,6 +328,21 @@ async function fetchAndProcessWearableData(connection: any) {
 
   // F. Insert normalized metrics & advance sync tracker
   if (insertLogs.length > 0) {
+    // Deduplicate synced dates to avoid leaderboard score inflation
+    for (const log of insertLogs) {
+      const d = new Date(log.logged_at);
+      const startOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
+      const endOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString();
+
+      await supabaseAdmin
+        .from('metric_logs')
+        .delete()
+        .eq('user_id', log.user_id)
+        .eq('metric_slug', log.metric_slug)
+        .gte('logged_at', startOfDay)
+        .lt('logged_at', endOfDay);
+    }
+
     const { error: insertErr } = await supabaseAdmin
       .from('metric_logs')
       .insert(insertLogs);
