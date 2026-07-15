@@ -7,55 +7,35 @@ import { decodeSession, SESSION_COOKIE } from '@/lib/session';
 import UserAvatar from '@/components/UserAvatar';
 import CheerButton from '@/components/CheerButton';
 
+function LaurelBranch({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 48" fill="currentColor">
+      <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
+      <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
+      <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
+    </svg>
+  );
+}
+
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
-      <div className="flex items-center justify-center gap-0.5 bg-white px-2 py-0.5 rounded-full border border-yellow-400 shadow-sm select-none">
-        <svg className="h-6 w-3 -scale-x-100 transform fill-[#FACC15] text-[#FACC15]" viewBox="0 0 24 48">
-          <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
-          <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
-          <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
-        </svg>
-        <span className="text-xs font-black text-[#FACC15] px-0.5">1</span>
-        <svg className="h-6 w-3 fill-[#FACC15] text-[#FACC15]" viewBox="0 0 24 48">
-          <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
-          <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
-          <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
-        </svg>
+      <div className="bg-[#FFFDF0] text-base rounded-full w-6 h-6 flex items-center justify-center shadow border border-yellow-400 select-none">
+        🥇
       </div>
     );
   }
   if (rank === 2) {
     return (
-      <div className="flex items-center justify-center gap-0.5 bg-white px-2 py-0.5 rounded-full border border-slate-300 shadow-sm select-none">
-        <svg className="h-6 w-3 -scale-x-100 transform fill-[#94A3B8] text-[#94A3B8]" viewBox="0 0 24 48">
-          <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
-          <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
-          <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
-        </svg>
-        <span className="text-xs font-black text-[#94A3B8] px-0.5">2</span>
-        <svg className="h-6 w-3 fill-[#94A3B8] text-[#94A3B8]" viewBox="0 0 24 48">
-          <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
-          <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
-          <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
-        </svg>
+      <div className="bg-[#F8FAFC] text-base rounded-full w-6 h-6 flex items-center justify-center shadow border border-slate-300 select-none">
+        🥈
       </div>
     );
   }
   if (rank === 3) {
     return (
-      <div className="flex items-center justify-center gap-0.5 bg-white px-2 py-0.5 rounded-full border border-amber-600 shadow-sm select-none">
-        <svg className="h-6 w-3 -scale-x-100 transform fill-[#D97706] text-[#D97706]" viewBox="0 0 24 48">
-          <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
-          <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
-          <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
-        </svg>
-        <span className="text-xs font-black text-[#D97706] px-0.5">3</span>
-        <svg className="h-6 w-3 fill-[#D97706] text-[#D97706]" viewBox="0 0 24 48">
-          <path d="M12 4C10 8 4 12 4 18C4 24 10 28 12 32C10 36 4 40 4 44C8 44 14 40 16 36C14 32 8 28 8 22C8 16 14 12 16 8C14 4 12 4 12 4Z" />
-          <path d="M18 14C15 17 12 21 13 25C16 23 19 19 18 14Z" />
-          <path d="M18 28C15 31 12 35 13 39C16 37 19 33 18 28Z" />
-        </svg>
+      <div className="bg-[#FFFBEB] text-base rounded-full w-6 h-6 flex items-center justify-center shadow border border-amber-600 select-none">
+        🥉
       </div>
     );
   }
@@ -329,15 +309,24 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-1 w-1/3 max-w-[150px]">
           {secondPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="relative mb-3">
-                <UserAvatar 
-                  user={secondPlace.profile} 
-                  size="xl" 
-                  className="shadow-md border-4 border-slate-300 hover:scale-105"
-                />
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
-                  <RankBadge rank={2} />
+              <div className="relative flex items-center justify-center p-2 mb-3">
+                {/* Left Wreath Branch */}
+                <LaurelBranch className="absolute -left-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#94A3B8] pointer-events-none" />
+                
+                {/* Center Profile Avatar */}
+                <div className="z-10 relative">
+                  <UserAvatar 
+                    user={secondPlace.profile} 
+                    size="xl" 
+                    className="shadow-md border-4 border-slate-300 hover:scale-105"
+                  />
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
+                    <RankBadge rank={2} />
+                  </div>
                 </div>
+
+                {/* Right Wreath Branch (Mirrored) */}
+                <LaurelBranch className="absolute -right-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#94A3B8] pointer-events-none transform scale-x-[-1]" />
               </div>
               <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
                 {secondPlace.profile.nickname || secondPlace.profile.full_name}
@@ -370,16 +359,25 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-2 w-1/3 max-w-[180px]">
           {firstPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <div className="relative mb-3">
-                <span className="absolute -top-5 left-1/2 -translate-x-1/2 z-10 text-xl animate-bounce" role="img" aria-label="Gold Trophy">🏆</span>
-                <UserAvatar 
-                  user={firstPlace.profile} 
-                  size="2xl" 
-                  className="shadow-xl border-4 border-yellow-400 hover:scale-105"
-                />
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
-                  <RankBadge rank={1} />
+              <div className="relative flex items-center justify-center p-2 mb-3">
+                {/* Left Wreath Branch */}
+                <LaurelBranch className="absolute -left-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#FACC15] pointer-events-none" />
+                
+                {/* Center Profile Avatar */}
+                <div className="z-10 relative">
+                  <span className="absolute -top-5 left-1/2 -translate-x-1/2 z-20 text-xl animate-bounce" role="img" aria-label="Gold Trophy">🏆</span>
+                  <UserAvatar 
+                    user={firstPlace.profile} 
+                    size="2xl" 
+                    className="shadow-xl border-4 border-yellow-400 hover:scale-105"
+                  />
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
+                    <RankBadge rank={1} />
+                  </div>
                 </div>
+
+                {/* Right Wreath Branch (Mirrored) */}
+                <LaurelBranch className="absolute -right-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#FACC15] pointer-events-none transform scale-x-[-1]" />
               </div>
               <span className="text-xs font-black text-[#111827] truncate max-w-full mb-2">
                 {firstPlace.profile.nickname || firstPlace.profile.full_name}
@@ -413,15 +411,24 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
         <div className="flex flex-col items-center order-3 w-1/3 max-w-[150px]">
           {thirdPlace ? (
             <div className="flex flex-col items-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="relative mb-3">
-                <UserAvatar 
-                  user={thirdPlace.profile} 
-                  size="xl" 
-                  className="shadow-md border-4 border-amber-600 hover:scale-105"
-                />
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
-                  <RankBadge rank={3} />
+              <div className="relative flex items-center justify-center p-2 mb-3">
+                {/* Left Wreath Branch */}
+                <LaurelBranch className="absolute -left-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#D97706] pointer-events-none" />
+                
+                {/* Center Profile Avatar */}
+                <div className="z-10 relative">
+                  <UserAvatar 
+                    user={thirdPlace.profile} 
+                    size="xl" 
+                    className="shadow-md border-4 border-amber-600 hover:scale-105"
+                  />
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20">
+                    <RankBadge rank={3} />
+                  </div>
                 </div>
+
+                {/* Right Wreath Branch (Mirrored) */}
+                <LaurelBranch className="absolute -right-3 top-1/2 -translate-y-1/2 h-full w-auto text-[#D97706] pointer-events-none transform scale-x-[-1]" />
               </div>
               <span className="text-[11px] font-bold text-[#111827] truncate max-w-full mb-2">
                 {thirdPlace.profile.nickname || thirdPlace.profile.full_name}
