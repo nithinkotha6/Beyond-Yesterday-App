@@ -9,10 +9,11 @@ The interface utilizes a strict split-layout design to maximize contrast and foc
 ## 2. Sidebar Components (Dark Theme)
 - **Primary Navigation:** Vertical menu list containing: 
   - `Dashboard` (Active state: accented with Neon Lime `#CEFF00` text and a subtle left border/indicator).
-  - `Activity` (Activity queue/history).
   - `Leaderboard` (Olympic podium view rankings).
   - `Gang` (Roster of group members).
-  - `Challenges` and `Gear` (Stubs for future features).
+  - `Wearables` (Integrate and sync wearable data).
+  - `Memories` (Shared group photo album).
+  - `Settings` (Dynamic metric settings tracker. Anchored at the bottom of the sidebar navigation list).
 - **Gamified User Profile Block:** Positioned near the bottom of the navigation.
   - Displays the user's avatar.
   - Displays the user's name and group.

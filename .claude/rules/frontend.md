@@ -20,7 +20,7 @@ You must use these exact Tailwind arbitrary values:
 ## 3. Typography & Layout Strictness
 - **Font:** Use `Inter` or `Geist` (sans-serif) heavily weighted. Headers like "THE GROWTH CLUB" must be `font-black` (900 weight), uppercase, and tightly tracked (`tracking-tight`).
 - **Grid:** The main dashboard is a flexible CSS Grid. The top row has the chart (occupying ~65% width) and the Breaking News feed (occupying ~35% width).
-- **Sidebar Placeholders:** Render exact placeholders for Activity, Performance, Community, Challenges, Gear, Settings. Include the "JUST SHOW UP" poster placeholder at the bottom.
+- **Sidebar Navigation:** Render links for Dashboard, Leaderboard, Gang, Wearables, Memories, Settings. Include the "JUST SHOW UP" poster placeholder at the bottom. Settings is positioned at the absolute bottom of the navigation list.
 
 ## 4. Charting & Widget Specifics
 - **Line Chart (ECharts):** Hide all grid lines except horizontal ones (make them dashed and very light grey). Hide the Y-axis line. Place avatars exactly at the end of the line series with the numeric value in bold next to the avatar.

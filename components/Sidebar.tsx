@@ -3,11 +3,8 @@
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Activity,
   BarChart2,
   Users,
-  Trophy,
-  ShoppingBag,
   LogOut,
   Image,
   Watch,
@@ -17,14 +14,11 @@ import { logoutAction } from '@/app/actions/auth';
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Dashboard',   href: '/dashboard' },
-  { icon: Activity,        label: 'Activity',    href: '#' },
   { icon: BarChart2,       label: 'Leaderboard', href: '/dashboard/leaderboard' },
   { icon: Users,           label: 'Gang',        href: '/dashboard/gang' },
   { icon: Watch,           label: 'Wearables',   href: '/dashboard/wearables' },
   { icon: Image,           label: 'Memories',    href: '/dashboard/memories' },
   { icon: Settings,        label: 'Settings',    href: '/settings/metrics' },
-  { icon: Trophy,          label: 'Challenges',  href: '#' },
-  { icon: ShoppingBag,     label: 'Gear',        href: '#' },
 ];
 
 interface SidebarProps {
