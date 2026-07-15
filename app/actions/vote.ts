@@ -57,14 +57,29 @@ export async function processVerificationVote({
     // Fetch the log details to verify ownership
     const { data: log, error: fetchErr } = await supabase
       .from('metric_logs')
-      .select('user_id, status')
+      .select('user_id, group_id, status')
       .eq('id', logId)
       .maybeSingle();
-
+ 
     if (fetchErr || !log) {
       return { success: false, error: 'Activity not found.' };
     }
 
+    let voterGroupId = session?.groupId;
+    if (!voterGroupId && voterId) {
+      const { data: member } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', voterId)
+        .limit(1)
+        .maybeSingle();
+      voterGroupId = member?.group_id;
+    }
+
+    if (String(log.group_id) !== String(voterGroupId)) {
+      return { success: false, error: 'Unauthorized: You can only vote on activities in your own group.' };
+    }
+ 
     // Strict Peer Voting Rules: Authors cannot approve their own pending logs
     if (String(log.user_id) === String(voterId)) {
       return { success: false, error: 'You cannot verify your own activity.' };
