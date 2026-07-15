@@ -458,7 +458,7 @@ export default function LandingPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-[#6B7280] text-[10px] mt-6 tracking-widest uppercase">
+        <p className="text-center text-[#6B7280] text-[10px] mt-6 tracking-widest">
           Built with Love by Nithin Kotha ❤️
         </p>
       </div>
