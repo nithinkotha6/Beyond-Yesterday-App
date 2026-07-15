@@ -12,77 +12,82 @@ type LogRow = {
   metric_slug: string;
   unit: string;
   profiles: { full_name: string | null; nickname: string | null } | null;
+  headline?: string | null;
 };
-
+ 
 function formatAchievement(log: LogRow): string {
+  if (log.headline) {
+    return log.headline;
+  }
   const name = log.profiles?.nickname || log.profiles?.full_name || 'Someone';
   const val  = Number(log.value);
   const slug = log.metric_slug ?? '';
   const unit = log.unit ?? '';
-
+  const metricName = slug.replace(/_/g, ' ');
+ 
   switch (slug) {
     case 'top_golf':
       return val >= 250
         ? `${name} hit an absolute bomb! ${val} ${unit} drive at Top Golf today ⛳🔥`
         : `${name} hit a ${val} ${unit} shot at Top Golf ⛳`;
-
+ 
     case 'weight':
       return `${name} checked in at ${val} ${unit} ⚖️`;
-
+ 
     case 'highest_steps':
       return val >= 15000
         ? `${name} logged an insane ${val.toLocaleString()} steps today 👟🔥`
         : `${name} clocked ${val.toLocaleString()} steps 👟`;
-
+ 
     case 'marathon':
       return `${name} completed a marathon in ${val} ${unit} 🏅`;
-
+ 
     case 'car_top_speed':
       return val >= 100
         ? `${name} pushed the Hycross to ${val} ${unit} — speed demon! 🚗💨`
         : `${name} clocked ${val} ${unit} in the Hycross 🚗`;
-
+ 
     case 'underwater_swim':
       return val >= 50
         ? `${name} swam ${val} meters underwater on one breath — INCREDIBLE 🤿`
         : `${name} swam ${val} meters underwater 🤿`;
-
+ 
     case 'most_beers':
       return val >= 10
         ? `${name} put away ${val} beers — absolute legend 🍺🏆`
         : `${name} had ${val} beer${val !== 1 ? 's' : ''} 🍺`;
-
+ 
     case 'catan_wins':
       return `${name} won a game of Catan! 🎲 Settlers beware…`;
-
+ 
     case 'national_parks':
       return `${name} visited a national park 🏔️ Living the dream!`;
-
+ 
     default: {
-      const display = slug.replace(/_/g, ' ');
-      return `${name} logged ${val} ${unit} of ${display} 🏆`;
+      return `${name} logged ${val} ${unit} for ${metricName}!`;
     }
   }
 }
-
+ 
 /* ── Main component ──────────────────────────────────────────────────── */
 export default async function LiveAchievementTicker({ groupId }: { groupId: string }) {
   const supabase = await createClient();
-
-  // Fetch 15 most recent verified logs scoped to this group.
+ 
+  // Fetch 15 most recent verified and pending logs scoped to this group.
   const { data: logs } = await supabase
     .from('metric_logs')
     .select(`
       value,
       metric_slug,
       unit,
+      headline,
       profiles!inner ( full_name, nickname )
     `)
     .eq('group_id', groupId)
-    .eq('status', 'verified')
+    .in('status', ['verified', 'pending'])
     .order('logged_at', { ascending: false })
     .limit(15);
-
+ 
   const rows = (logs ?? []) as unknown as LogRow[];
 
   const sentences: string[] =
