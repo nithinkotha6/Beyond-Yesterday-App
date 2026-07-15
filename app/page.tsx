@@ -351,15 +351,19 @@ export default function LandingPage() {
                   />
                 </div>
 
-                {/* Full Name */}
+                {/* First Name */}
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-[#6B7280] uppercase mb-1.5">
-                    Full Name
+                    First Name
                   </label>
                   <input
                     type="text"
                     value={signUpName}
-                    onChange={e => { setSignUpName(e.target.value); setSignUpError(null); }}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\s+/g, '');
+                      setSignUpName(val);
+                      setSignUpError(null);
+                    }}
                     onFocus={() => {
                       if (!hasPlayedNameAudio) {
                         playAudio('name.mp3');
@@ -367,10 +371,13 @@ export default function LandingPage() {
                       }
                     }}
                     required
-                    placeholder="First and Last name"
+                    placeholder="Enter first name only"
                     disabled={isPending}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
                   />
+                  <p className="mt-1.5 text-[10px] text-[#6B7280]">
+                    To prevent duplicate records, first names cannot contain spaces.
+                  </p>
                 </div>
 
                 {/* Nickname */}
@@ -452,7 +459,7 @@ export default function LandingPage() {
 
         {/* Footer */}
         <p className="text-center text-[#6B7280] text-[10px] mt-6 tracking-widest uppercase">
-          Kiosk Mode · Sessions expire in 24 hours
+          Built with Love by Nithin Kotha ❤️
         </p>
       </div>
     </div>

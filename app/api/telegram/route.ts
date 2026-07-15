@@ -156,7 +156,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Load configs & dynamic metrics
   const { data: configs } = await supabase.from('metrics_config').select('slug, display_name, unit');
-  const { data: customs } = await supabase.from('metric_definitions').select('id, name, unit');
+  const { data: customs } = await supabase
+    .from('metric_definitions')
+    .select('id, name, unit')
+    .eq('group_id', membership.group_id);
  
   const validConfigs = configs || [];
   const validCustoms = customs || [];

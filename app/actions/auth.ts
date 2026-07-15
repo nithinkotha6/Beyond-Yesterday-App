@@ -197,8 +197,9 @@ export async function signUpAction(
   email: string,
   pin: string,
 ): Promise<SignUpResult> {
-  if (!inviteCode || !fullName || !pin) {
-    return { success: false, error: 'Invite code, Full Name, and PIN are required.' };
+  const sanitizedName = fullName.replace(/\s+/g, '').trim();
+  if (!inviteCode || !sanitizedName || !pin) {
+    return { success: false, error: 'Invite code, First Name, and PIN are required.' };
   }
 
   const sanitizedPin = pin.replace(/\s/g, '').trim();
@@ -259,7 +260,7 @@ export async function signUpAction(
 
           // Strictly compare trimmed lowercase names
           const dbName = p.full_name?.toLowerCase().trim();
-          const inputName = fullName.toLowerCase().trim();
+          const inputName = sanitizedName.toLowerCase().trim();
           const nameMatch = !!(dbName && inputName && dbName === inputName);
 
           // Strictly compare trimmed lowercase emails only if both are set and non-empty
@@ -280,7 +281,7 @@ export async function signUpAction(
     const { data: newProfile, error: profileError } = await supabase
       .from('profiles')
       .insert({
-        full_name: fullName.trim(),
+        full_name: sanitizedName,
         nickname: nickname.trim() || null,
         email: email.trim() || null,
         pin: sanitizedPin,

@@ -80,6 +80,7 @@ export default async function LeaderboardPage({ searchParams }: LeaderboardPageP
   const { data: dbDefinitions } = await supabase
     .from('metric_definitions')
     .select('*')
+    .eq('group_id', groupId)
     .order('created_at', { ascending: true });
 
   const customMetrics = (dbDefinitions || []).map((def) => ({

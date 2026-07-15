@@ -25,6 +25,7 @@ export default async function SettingsPage() {
   const { data: definitions } = await supabase
     .from('metric_definitions')
     .select('*')
+    .eq('group_id', session.groupId)
     .order('created_at', { ascending: false });
  
   return (

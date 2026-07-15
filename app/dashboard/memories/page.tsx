@@ -41,7 +41,7 @@ export default async function MemoriesPage() {
   const memoryIds = memoriesList.map((m) => m.id);
 
   // Fetch comments matching these memory IDs
-  let commentsList: any[] = [];
+  let commentsList: unknown[] = [];
   if (memoryIds.length > 0) {
     const { data: commentsRaw, error: commentsErr } = await supabase
       .from('memory_comments')
@@ -65,7 +65,9 @@ export default async function MemoriesPage() {
 
   return (
     <MemoriesClientPage
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialMemories={memoriesList as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialComments={commentsList as any}
       groupId={groupId}
       userId={userId}

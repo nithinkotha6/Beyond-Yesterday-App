@@ -108,6 +108,7 @@ export default async function DashboardPage({
   const { data: dbDefinitions } = await supabase
     .from('metric_definitions')
     .select('*')
+    .eq('group_id', groupId)
     .order('created_at', { ascending: true });
 
   const customPills = (dbDefinitions || []).map((def) => ({

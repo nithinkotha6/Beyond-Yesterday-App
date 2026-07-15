@@ -1,18 +1,31 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createBaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { SESSION_COOKIE, decodeSession } from '@/lib/session';
 
 /**
  * Supabase client for Server Components, Server Actions, and Route Handlers.
  * Uses @supabase/ssr to read/write cookies on the Next.js request context.
+ * Automatically appends the x-group-id header to isolate PostgREST requests at the RLS database boundary.
  */
 export async function createClient() {
   const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const session = token ? await decodeSession(token) : null;
+  const groupId = session?.groupId;
+
+  const headersObj: Record<string, string> = {};
+  if (groupId) {
+    headersObj['x-group-id'] = groupId;
+  }
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        headers: headersObj,
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -30,13 +43,22 @@ export async function createClient() {
 /**
  * Centrally configured service role client to securely bypass RLS
  * on server-side queries (Server Actions, API Routes, Server Components).
+ * Safely falls back to the anon client if SUPABASE_SERVICE_ROLE_KEY is not defined.
  */
 export function createAdminClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  
   if (!serviceKey || serviceKey.trim() === '') {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined.');
+    console.warn('[Supabase Server] WARNING: SUPABASE_SERVICE_ROLE_KEY is not defined. Falling back to anon client.');
+    return createBaseClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
   }
+
   return createBaseClient(url, serviceKey, {
     auth: {
       persistSession: false,

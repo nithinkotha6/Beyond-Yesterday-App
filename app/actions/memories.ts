@@ -5,6 +5,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { SESSION_COOKIE, decodeSession } from '@/lib/session';
+import { googleProvider } from '@/lib/ai/google';
 
 /**
  * Helper to build an admin/service-role client bypassing RLS, or fallback to anon client.
@@ -97,13 +98,22 @@ export async function uploadAndCreateMemoryAction(
       return { success: false, error: `Database insert failed: ${dbErr.message}` };
     }
 
-    // 6. Outbound WhatsApp Mirroring (Pillar 3)
-    const instanceId = process.env.GREEN_API_INSTANCE_ID;
-    const token = process.env.GREEN_API_TOKEN;
-    const waChatId = process.env.WHATSAPP_GROUP_ID;
+    // 6. Outbound Group-Scoped WhatsApp AI Broadcasting (Phase 3)
+    try {
+      // Retrieve Group specific WhatsApp API credentials
+      const { data: group } = await supabase
+        .from('groups')
+        .select('whatsapp_instance_id, whatsapp_token, whatsapp_group_id')
+        .eq('id', groupId)
+        .single();
 
-    if (instanceId && token && waChatId) {
-      try {
+      const instanceId = group?.whatsapp_instance_id || process.env.GREEN_API_INSTANCE_ID;
+      const token = group?.whatsapp_token || process.env.GREEN_API_TOKEN;
+      const waChatId = group?.whatsapp_group_id || process.env.WHATSAPP_GROUP_ID;
+
+      if (!instanceId || !token || !waChatId) {
+        console.log(`[WhatsApp Broadcast] Group ${groupId} lacks a configured WhatsApp integration. Skipping broadcast.`);
+      } else {
         // Fetch the uploader's profile to resolve their name
         const { data: profile } = await supabase
           .from('profiles')
@@ -112,7 +122,37 @@ export async function uploadAndCreateMemoryAction(
           .single();
 
         const uploaderName = profile?.nickname || profile?.full_name || 'Someone';
-        const cleanCaption = `"${uploaderName} added this picture to Memories:"`;
+
+        // Eagerly generate AI Caption based on image + user provided context
+        let aiCaption = `"${uploaderName} shared a memory!"`;
+        try {
+          const promptText = `You are a group chat assistant for a group of friends training together.
+The athlete "${uploaderName}" has uploaded a new picture to their shared digital memories archive.
+User-provided caption/context: ${caption || 'No caption provided'}.
+
+Analyze the context and write a fun, engaging, and motivating caption/banter for this memory.
+Keep it concise (1-2 sentences), formatted for a casual group chat.
+Do not use hashtags or markdown formatting (like bold, italics). Just plain text.`;
+
+          const { generateText } = await import('ai');
+          const { text } = await generateText({
+            model: googleProvider('gemini-3.5-flash'),
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: promptText },
+                  { type: 'image', image: base64Image, mediaType: 'image/jpeg' }
+                ]
+              }
+            ]
+          });
+          if (text && text.trim()) {
+            aiCaption = text.trim();
+          }
+        } catch (aiErr) {
+          console.error('[WhatsApp AI Caption] Failed to generate AI caption, using fallback:', aiErr);
+        }
 
         const mirrorUrl = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${token}`;
         
@@ -124,27 +164,28 @@ export async function uploadAndCreateMemoryAction(
             chatId: waChatId,
             urlFile: publicUrl,
             fileName: fileName,
-            caption: cleanCaption,
+            caption: aiCaption,
           }),
         }).then(res => {
           if (!res.ok) {
-            console.error('[uploadAndCreateMemoryAction] Green API mirroring response status error:', res.status);
+            console.error('[WhatsApp Broadcast] Green API error status:', res.status);
           } else {
-            console.log('[uploadAndCreateMemoryAction] Green API mirroring successfully triggered.');
+            console.log('[WhatsApp Broadcast] successfully sent.');
           }
         }).catch(err => {
-          console.error('[uploadAndCreateMemoryAction] Green API mirroring connection error:', err);
+          console.error('[WhatsApp Broadcast] connection error:', err);
         });
-      } catch (mirrorErr) {
-        console.error('[uploadAndCreateMemoryAction] Failed to trigger Green API mirror:', mirrorErr);
       }
+    } catch (broadcastErr) {
+      console.error('[WhatsApp Broadcast] Unexpected exception:', broadcastErr);
     }
 
     revalidatePath('/', 'layout');
     return { success: true, memory: dbData };
-  } catch (err: any) {
-    console.error('[uploadAndCreateMemoryAction] Crash details:', err);
-    return { success: false, error: err.message || 'An unexpected server error occurred.' };
+  } catch (err) {
+    const error = err as Error;
+    console.error('[uploadAndCreateMemoryAction] Crash details:', error);
+    return { success: false, error: error.message || 'An unexpected server error occurred.' };
   }
 }
 
@@ -166,6 +207,17 @@ export async function addMemoryComment(memoryId: string, content: string, userId
   try {
     const supabase = await getAdminClient();
 
+    // Enforce tenant isolation check: verify that the memory belongs to the caller's group
+    const { data: memoryRow, error: memoryError } = await supabase
+      .from('memories')
+      .select('group_id')
+      .eq('id', memoryId)
+      .single();
+
+    if (memoryError || !memoryRow || String(memoryRow.group_id) !== String(session.groupId)) {
+      return { success: false, error: 'Unauthorized: Memory is not in your group.' };
+    }
+
     const { data, error } = await supabase
       .from('memory_comments')
       .insert({
@@ -183,9 +235,10 @@ export async function addMemoryComment(memoryId: string, content: string, userId
 
     revalidatePath('/', 'layout');
     return { success: true, comment: data };
-  } catch (err: any) {
-    console.error('[addMemoryComment] Crash details:', err);
-    return { success: false, error: err.message || 'Unexpected server error.' };
+  } catch (err) {
+    const error = err as Error;
+    console.error('[addMemoryComment] Crash details:', error);
+    return { success: false, error: error.message || 'Unexpected server error.' };
   }
 }
 
@@ -212,6 +265,7 @@ export async function deleteMemoryAction(memoryId: string, userId: string) {
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', memoryId)
       .eq('user_id', userId)
+      .eq('group_id', session.groupId)
       .select()
       .single();
 
@@ -222,8 +276,9 @@ export async function deleteMemoryAction(memoryId: string, userId: string) {
 
     revalidatePath('/', 'layout');
     return { success: true, memory: data };
-  } catch (err: any) {
-    console.error('[deleteMemoryAction] Crash details:', err);
-    return { success: false, error: err.message || 'Unexpected server error.' };
+  } catch (err) {
+    const error = err as Error;
+    console.error('[deleteMemoryAction] Crash details:', error);
+    return { success: false, error: error.message || 'Unexpected server error.' };
   }
 }

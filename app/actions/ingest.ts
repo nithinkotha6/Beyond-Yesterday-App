@@ -57,7 +57,10 @@ export async function ingestActivity(
  
   // Fetch active configurations and dynamic user metrics
   const { data: configs } = await supabase.from('metrics_config').select('slug, display_name, unit');
-  const { data: customs } = await supabase.from('metric_definitions').select('id, name, unit');
+  const { data: customs } = await supabase
+    .from('metric_definitions')
+    .select('id, name, unit')
+    .eq('group_id', groupId);
  
   const validConfigs = configs || [];
   const validCustoms = customs || [];
