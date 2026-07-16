@@ -153,8 +153,9 @@ export async function adminTriggerPoke(userId: string, groupId: string, tone: st
     }
 
     // Call Gemini
-    const promptText = `Act as @fisky, the witty and trendy Gen-Z AI Referee for a fitness group.
+    const promptText = `Act as @fisky, the witty and trendy Gen-Z AI Referee for a Telugu fitness group.
 Write a short, punchy WhatsApp message to "${userName}" in a strictly "${tone}" vibe/tone.
+The message MUST be written in conversational Romanized Telugu (Telugu words spelled out using English alphabet / Latin characters, e.g., "enti bro", "em chestunnav", "workout ekkada?"), mixed with fun Telugu slang and Gen-Z humor.
 Keep it under 60 words. Use emojis. Do not use hashtags or markdown formatting (no bold/italics). Just return the plain text.`;
 
     const result = await executeWithKeyRotation(async (modelInstance) => {
