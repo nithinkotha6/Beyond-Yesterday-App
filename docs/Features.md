@@ -4,16 +4,16 @@
 The interface utilizes a strict split-layout design to maximize contrast and focus.
 - **Left Sidebar:** Dark theme (`bg-[#0A0A0A]`). Fixed width, occupying the left margin of the screen.
 - **Main Dashboard Area:** Light theme (`bg-[#F7F8FA]`). Flexible CSS Grid occupying the remaining viewport.
-- **Widgets & Cards:** Pure white (`bg-white`) with large `24px` border radiuses and soft, transparent shadows.
+- **Widgets & Cards:** Pure white (`bg-white`) with thin slate border outlines (`border-slate-200`) and slight shadow indicators. Dark card containers and pastel-colored backgrounds are strictly forbidden.
 
 ## 2. Sidebar Components (Dark Theme)
 - **Primary Navigation:** Vertical menu list containing: 
-  - `Dashboard` (Active state: accented with Neon Lime `#CEFF00` text and a subtle left border/indicator).
-  - `Leaderboard` (Olympic podium view rankings).
-  - `Gang` (Roster of group members).
-  - `Wearables` (Integrate and sync wearable data).
-  - `Memories` (Shared group photo album).
-  - `Settings` (Dynamic metric settings tracker. Anchored at the bottom of the sidebar navigation list).
+   - `Dashboard` (Active state: accented with Neon Lime/Yellow `#CEFF00` text and a subtle left border/indicator).
+   - `Leaderboard` (Olympic podium view rankings).
+   - `Gang` (Roster of group members).
+   - `Wearables` (Integrate and sync wearable data).
+   - `Memories` (Shared group photo album).
+   - `Settings` (Dynamic metric settings tracker. Anchored at the bottom of the sidebar navigation list).
 - **Gamified User Profile Block:** Positioned near the bottom of the navigation.
   - Displays the user's avatar.
   - Displays the user's name and group.
@@ -27,12 +27,7 @@ The interface utilizes a strict split-layout design to maximize contrast and foc
 - **Controls (Top Right):** 
   - **Date Range Picker:** A white dropdown button (e.g., `Last 7 Days`). Changing this dynamically re-fetches the database rows for the main chart.
   - **Add Activity Button:** A solid black button with a white `+` icon and text `+ Add Activity`.
-- **Metric Selectors (Pills):** A horizontal row of toggles that dictate the data shown in the main chart below:
-  - `Long Run` (Pastel Green background, black text/icon)
-  - `Deadlift` (Pastel Purple background, black text/icon)
-  - `Top Speed` (Pastel Red background, red text/icon)
-  - `Weight` (Pastel Teal/Cyan background, black text/icon)
-  - `Calories` (Pastel Orange background, brown text/icon)
+- **Metric Selectors (Pills):** A horizontal row of toggles that dictate the data shown in the main chart below. Active pills are styled with Neon Yellow/Green background (`bg-[#CEFF00]`) and black text. Inactive pills are styled with `bg-slate-100` and gray text.
 
 ## 4. Primary Charting & Social Feed (Middle Row)
 - **Main Trend Chart (ECharts):**
@@ -45,13 +40,13 @@ The interface utilizes a strict split-layout design to maximize contrast and foc
   - Each item features: A `<UserAvatar />` displaying their photo or initials fallback, natural language activity message, and relative timestamp.
 
 ## 5. Leaderboard View (Olympic Podium Layout)
-- **Interactive Metric Selector:** Horizontal scrolling pills to switch between Long Run, Top Speed, Deadlift, Calories, Weight, and Total Activities.
+- **Interactive Metric Selector:** Horizontal scrolling pills to switch between different active metrics.
 - **Podium Header (Top 3):** Mobile-first staggered pedestal layout (1st place Center/tallest, 2nd place Left/medium, 3rd place Right/lower). Features gold, silver, and bronze badges.
 - **Rankings Table:** Clean table underneath the podium detailing ranks 4 and below with user avatars, levels, XP details, and exact scores.
 
 ## 6. Gang Roster View
-- **Roster Directory Grid:** Responsive square cards displaying members of the active group.
-- **Member Roster Card:** Features large centered `<UserAvatar />` badges with level overlays, user full name, nickname, current Level, and total XP.
+- **Roster Directory Grid:** Responsive grid of member directory cards, cached client-side using SWR to eliminate avatar flickering.
+- **Member Roster Card:** Pure white card displaying user initials fallback or custom avatar image, current Level, total XP, and active status indicators.
 
 ## 7. Background Workflows & Core Integrations
 - **Manual AI Ingestion Modal:** Natural language activity parser via Next.js Server Action + Gemini AI. Auto-updates dashboard statistics and logs.
