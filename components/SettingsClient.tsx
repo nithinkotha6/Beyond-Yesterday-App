@@ -94,6 +94,7 @@ export default function SettingsClient({
   const [selectedTone, setSelectedTone] = useState('fun-roast');
   const [toneSelectedUser, setToneSelectedUser] = useState('');
   const [toneFeedback, setToneFeedback] = useState<{ success: boolean; message: string } | null>(null);
+  const [selectedGenderStyle, setSelectedGenderStyle] = useState('auto');
 
   const formatAdminError = (err: unknown): string => {
     if (!err) return 'An unknown error occurred';
@@ -511,7 +512,7 @@ export default function SettingsClient({
                   if (!toneSelectedUser) return;
                   setToneFeedback(null);
                   setIsSubmittingAdmin(true);
-                  const res = await adminTriggerPoke(toneSelectedUser, session.groupId, selectedTone);
+                  const res = await adminTriggerPoke(toneSelectedUser, session.groupId, selectedTone, selectedGenderStyle);
                   setIsSubmittingAdmin(false);
                   if (res.success) {
                     setToneFeedback({ success: true, message: `Vibe dispatch sent successfully! Message: "${res.message}"` });
@@ -548,6 +549,35 @@ export default function SettingsClient({
                           }`}
                         >
                           {t.emoji} {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Gender Style Vibe
+                  </label>
+                  <div className="flex gap-1.5">
+                    {[
+                      { key: 'auto', label: 'Auto (Profile) 🤖' },
+                      { key: 'male', label: 'Male Style 👨' },
+                      { key: 'female', label: 'Female Style 👩' },
+                    ].map((g) => {
+                      const isActive = selectedGenderStyle === g.key;
+                      return (
+                        <button
+                          key={g.key}
+                          type="button"
+                          onClick={() => setSelectedGenderStyle(g.key)}
+                          className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-all duration-200 cursor-pointer ${
+                            isActive
+                              ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-purple-300'
+                          }`}
+                        >
+                          {g.label}
                         </button>
                       );
                     })}

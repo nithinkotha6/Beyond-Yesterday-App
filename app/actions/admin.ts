@@ -120,14 +120,14 @@ export async function adminRemoveMember(userId: string, groupId: string) {
 }
 
 // F. Trigger Poke/Roast Motivation
-export async function adminTriggerPoke(userId: string, groupId: string, tone: string) {
+export async function adminTriggerPoke(userId: string, groupId: string, tone: string, genderStyle: string = 'auto') {
   try {
     const supabase = createAdminClient();
 
     // Resolve profile details
     const { data: profile, error: profError } = await supabase
       .from('profiles')
-      .select('nickname, full_name')
+      .select('nickname, full_name, gender')
       .eq('id', userId)
       .single();
 
@@ -136,6 +136,15 @@ export async function adminTriggerPoke(userId: string, groupId: string, tone: st
     }
 
     const userName = profile.nickname || profile.full_name || 'Athlete';
+
+    let resolvedGender = 'Neutral';
+    if (genderStyle === 'male') {
+      resolvedGender = 'Male';
+    } else if (genderStyle === 'female') {
+      resolvedGender = 'Female';
+    } else {
+      resolvedGender = profile.gender || 'Neutral';
+    }
 
     // Resolve group info for Green API details
     const { data: group } = await supabase
@@ -155,7 +164,17 @@ export async function adminTriggerPoke(userId: string, groupId: string, tone: st
     // Call Gemini
     const promptText = `Act as @fisky, the witty and trendy Gen-Z AI Referee for a Telugu fitness group.
 Write a short, punchy WhatsApp message to "${userName}" in a strictly "${tone}" vibe/tone.
+The target user's gender-style is "${resolvedGender}".
 The message MUST be written in conversational Romanized Telugu (Telugu words spelled out using English alphabet / Latin characters, e.g., "enti bro", "em chestunnav", "workout ekkada?"), mixed with fun Telugu slang and Gen-Z humor.
+
+When the selected tone calls for it, you can naturally use colloquial friendly Telugu slang/banter expressions. The supported vocabulary includes:
+- "bang@m-sulii" (used for general or male/female style)
+- "pichi-l@mja" (strictly for female style/context)
+- "kothi-badcow" (for general or male style/context)
+- "ment@l-mund" (strictly for female style/context)
+- "adavi manishi" (general style/context)
+
+Ensure you use these words naturally and in the correct style/gender context (e.g. do not use female-targeted words like "pichi-l@mja" or "ment@l-mund" if resolvedGender is Male). Treat these expressions as valid conversational friendly-roast language.
 Keep it under 60 words. Use emojis. Do not use hashtags or markdown formatting (no bold/italics). Just return the plain text.`;
 
     const result = await executeWithKeyRotation(async (modelInstance) => {
