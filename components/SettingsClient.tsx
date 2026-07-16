@@ -471,14 +471,14 @@ export default function SettingsClient({
   });
 
   return (
-    <div className="flex flex-col gap-6 px-4 md:px-8 pt-6 pb-24 bg-god-black min-h-screen text-slate-100">
+    <div className="flex flex-col gap-6 px-4 md:px-8 pt-6 pb-24 bg-god-canvas min-h-screen text-[#091819]">
       {/* Page Header */}
       <header>
-        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-slate-100 leading-none flex items-center gap-3">
+        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#091819] leading-none flex items-center gap-3">
           <Sliders className="text-god-orange w-10 h-10 stroke-[2.5]" />
           Metric Settings
         </h1>
-        <p className="mt-2 text-[11px] font-bold tracking-[0.18em] text-god-silver uppercase">
+        <p className="mt-2 text-[11px] font-bold tracking-[0.18em] text-god-blue uppercase">
           Dynamic Trackers · Customize Target KPI Metrics
         </p>
         <svg width="250" height="14" viewBox="0 0 250 14" fill="none" aria-hidden="true" className="mt-1">

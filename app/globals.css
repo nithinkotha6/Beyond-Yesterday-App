@@ -48,6 +48,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   
   /* Cyber-athletic god colors theme */
+  --color-god-canvas: #FBFBFB;
   --color-god-black: #091819;
   --color-god-blue: #21565C;
   --color-god-orange: #CE5100;

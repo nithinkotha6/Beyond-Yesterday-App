@@ -1,80 +1,95 @@
-import React from 'react';
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { Users } from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/server';
-import { decodeSession, SESSION_COOKIE } from '@/lib/session';
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Users, Loader2 } from 'lucide-react';
+import { fetchGangRoster, GangProfile } from '@/app/actions/gang';
 import UserAvatar from '@/components/UserAvatar';
 
-export default async function GangPage() {
-  // ── Session Authentication ─────────────────────────────────────────────
-  const cookieStore = await cookies();
-  const token       = cookieStore.get(SESSION_COOKIE)?.value;
-  const session     = token ? await decodeSession(token) : null;
-  if (!session) redirect('/');
+// Roster memory cache to avoid flicker on tab switching
+let cachedRosterData: {
+  groupName: string;
+  roster: GangProfile[];
+} | null = null;
 
-  const { groupId } = session;
+export default function GangPage() {
+  const [roster, setRoster] = useState<GangProfile[]>(() => cachedRosterData?.roster || []);
+  const [groupName, setGroupName] = useState<string>(() => cachedRosterData?.groupName || 'Texas Buds');
+  const [loading, setLoading] = useState<boolean>(() => cachedRosterData === null);
+  const [error, setError] = useState<string | null>(null);
 
-  // ── Fetch Roster Data from Supabase ─────────────────────────────────────
-  const supabase = createAdminClient();
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await fetchGangRoster();
+        if (!active) return;
+        if (res.success) {
+          setRoster(res.roster);
+          setGroupName(res.groupName);
+          setError(null);
+          cachedRosterData = {
+            groupName: res.groupName,
+            roster: res.roster,
+          };
+        } else {
+          setError(res.error || 'Failed to load gang roster.');
+        }
+      } catch (err) {
+        if (active) {
+          setError('Failed to fetch roster data.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  // 1. Fetch group details for the roster header
-  const { data: group } = await supabase
-    .from('groups')
-    .select('name')
-    .eq('id', groupId)
-    .single();
-
-  // 2. Fetch all profiles linked to group members (active only)
-  const { data: membersRaw } = await supabase
-    .from('group_members')
-    .select(`
-      user_id,
-      profiles!inner ( id, full_name, nickname, avatar_url, total_xp, current_level, is_active )
-    `)
-    .eq('group_id', groupId)
-    .neq('profiles.is_active', false);
-
-  type Profile = {
-    id: string;
-    full_name: string | null;
-    nickname: string | null;
-    avatar_url: string | null;
-    total_xp: number;
-    current_level: number;
-  };
-
-  // Extract profiles list sorted by total XP descending (leaderboard-like directory order)
-  const roster = (membersRaw ?? [])
-    .map((m) => m.profiles as unknown as Profile)
-    .filter((p): p is Profile => !!p)
-    .sort((a, b) => b.total_xp - a.total_xp);
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-god-canvas min-h-screen">
+        <Loader2 className="w-8 h-8 text-god-orange animate-spin" />
+        <p className="mt-2 text-xs font-bold text-god-blue uppercase tracking-wider">Loading Gang Roster...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-8 flex-1 flex flex-col bg-[#F7F8FA] min-w-0 overflow-y-auto">
+    <div className="p-4 md:p-8 flex-1 flex flex-col bg-god-canvas min-w-0 overflow-y-auto">
       {/* ── Group Roster Header ──────────────────────────────────────── */}
       <header className="mb-6">
-        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-[#111827] leading-none flex items-center gap-3">
-          <Users className="text-[#CEFF00] w-10 h-10 stroke-[2.5]" />
+        <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tight text-god-black leading-none flex items-center gap-3">
+          <Users className="text-god-orange w-10 h-10 stroke-[2.5]" />
           Gang
         </h1>
-        <p className="mt-2 text-[11px] font-bold tracking-[0.18em] text-[#6B7280] uppercase">
-          {group?.name ?? 'Texas Buds'} Roster · {roster.length} Member{roster.length !== 1 ? 's' : ''}
+        <p className="mt-2 text-[11px] font-bold tracking-[0.18em] text-god-blue uppercase">
+          {groupName} Roster · {roster.length} Member{roster.length !== 1 ? 's' : ''}
         </p>
         <svg width="250" height="14" viewBox="0 0 250 14" fill="none" aria-hidden="true" className="mt-1">
-          <path d="M2 10 C35 3, 80 13, 125 7 S190 2, 248 6" stroke="#CEFF00" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+          <path d="M2 10 C35 3, 80 13, 125 7 S190 2, 248 6" stroke="#CE5100" strokeWidth="2.8" strokeLinecap="round" fill="none" />
         </svg>
       </header>
+
+      {error && (
+        <div className="bg-god-red/10 border border-god-red/35 text-god-red px-4 py-3 rounded-xl text-xs font-bold mb-4">
+          {error}
+        </div>
+      )}
 
       {/* ── User Roster Grid ─────────────────────────────────────────── */}
       {roster.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
-          {roster.map((profile: Profile, index) => {
+          {roster.map((profile: GangProfile, index) => {
             return (
               <div
                 key={profile.id}
-                className="bg-white rounded-[24px] border border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-5 flex flex-col items-center text-center transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="bg-god-black rounded-[24px] border border-god-blue shadow-[0_8px_30px_rgba(0,0,0,0.3)] p-5 flex flex-col items-center text-center transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)] hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
+                style={{ animationDelay: `${index * 30}ms` }}
               >
                 {/* Large Centered Reusable UserAvatar */}
                 <div className="mb-4 relative">
@@ -84,27 +99,27 @@ export default async function GangPage() {
                     className="shadow-inner"
                     priority={index < 4}
                   />
-                  <div className="absolute -bottom-1.5 -right-1.5 bg-[#111827] border-2 border-white text-[10px] font-black text-[#CEFF00] rounded-full w-6 h-6 flex items-center justify-center shadow tabular-nums">
+                  <div className="absolute -bottom-1.5 -right-1.5 bg-god-black border-2 border-god-blue text-[10px] font-black text-god-orange rounded-full w-6 h-6 flex items-center justify-center shadow tabular-nums">
                     {profile.current_level}
                   </div>
                 </div>
 
                 {/* Name Details */}
                 <div className="flex flex-col w-full min-w-0">
-                  <h3 className="font-extrabold text-sm text-[#111827] truncate w-full">
+                  <h3 className="font-extrabold text-sm text-slate-100 truncate w-full">
                     {profile.nickname || profile.full_name}
                   </h3>
-                  <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mt-0.5 truncate w-full">
+                  <p className="text-[10px] font-bold text-god-silver uppercase tracking-wider mt-0.5 truncate w-full">
                     {profile.full_name || 'Club Member'}
                   </p>
                 </div>
 
                 {/* XP and Level badging */}
                 <div className="mt-4 flex items-center justify-center gap-1.5 flex-wrap w-full">
-                  <span className="bg-[#CEFF00]/10 border border-[#CEFF00]/20 text-[#111827] text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wide tabular-nums">
+                  <span className="bg-god-orange/10 border border-god-orange/20 text-god-orange text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wide tabular-nums">
                     Lvl {profile.current_level}
                   </span>
-                  <span className="bg-zinc-100 border border-zinc-200 text-zinc-600 text-[10px] font-bold px-3 py-1 rounded-full tabular-nums tracking-tight">
+                  <span className="bg-slate-900 border border-god-blue/30 text-god-silver text-[10px] font-bold px-3 py-1 rounded-full tabular-nums tracking-tight">
                     {profile.total_xp.toLocaleString()} XP
                   </span>
                 </div>
@@ -113,10 +128,10 @@ export default async function GangPage() {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-[24px] border border-white/5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] p-12 text-center flex flex-col items-center justify-center gap-2">
-          <Users size={32} className="text-[#E5E7EB]" />
-          <p className="text-sm font-bold text-[#9CA3AF]">Your gang has no athletes yet.</p>
-          <p className="text-xs text-[#D1D5DB]">Use your group invite code during signup to add members!</p>
+        <div className="bg-god-black rounded-[24px] border border-god-blue shadow-[0_2px_10px_rgba(0,0,0,0.2)] p-12 text-center flex flex-col items-center justify-center gap-2">
+          <Users size={32} className="text-god-silver" />
+          <p className="text-sm font-bold text-slate-100">Your gang has no athletes yet.</p>
+          <p className="text-xs text-god-silver">Use your group invite code during signup to add members!</p>
         </div>
       )}
     </div>

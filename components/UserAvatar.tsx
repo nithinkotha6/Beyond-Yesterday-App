@@ -49,9 +49,10 @@ function getStaticAvatarPath(user: UserAvatarProps['user']): string | null {
   return `/avatars/${firstName}.jpg`;
 }
 
+const LOADED_IMAGE_CACHE = new Set<string>();
+
 export default function UserAvatar({ user, size = 'md', className = '', borderColor, priority = false }: UserAvatarProps) {
   const [imgError, setImgError] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
   const displayName = user.nickname || user.full_name || 'Athlete';
 
@@ -77,9 +78,20 @@ export default function UserAvatar({ user, size = 'md', className = '', borderCo
   // Resolved image src: db url → static path → null (show initials)
   const imgSrc = isDbUrlValid ? dbUrl : staticPath;
 
+  const [loaded, setLoaded] = useState(() => {
+    if (typeof window !== 'undefined' && imgSrc && LOADED_IMAGE_CACHE.has(imgSrc)) {
+      return true;
+    }
+    return false;
+  });
+
   useEffect(() => {
     setImgError(false);
-    setLoaded(false);
+    if (imgSrc && LOADED_IMAGE_CACHE.has(imgSrc)) {
+      setLoaded(true);
+    } else {
+      setLoaded(false);
+    }
   }, [imgSrc]);
 
   const showImage = !!imgSrc && !imgError;
@@ -105,7 +117,10 @@ export default function UserAvatar({ user, size = 'md', className = '', borderCo
           height={SIZE_NUMBERS[size]}
           priority={priority}
           className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            setLoaded(true);
+            if (imgSrc) LOADED_IMAGE_CACHE.add(imgSrc);
+          }}
           onError={() => setImgError(true)}
           unoptimized
         />
