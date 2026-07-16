@@ -8,16 +8,19 @@ const SLANG_MAP: Record<string, Record<string, string[]>> = {
   ragebait: {
     Male: ['kothi-badcow', 'adavi manishi', 'waste fellow', 'pichi-fellow'],
     Female: ['over-action', 'drama queen', 'gossip-monger'],
+    Gay: ['over-action', 'drama queen', 'slay queen', 'fabulous fellow'],
     Neutral: ['adavi manishi', 'waste fellow'],
   },
   flirt_tease: {
     Male: ['hero', 'manmadhudu', 'heavy personality'],
     Female: ['bangaram', 'heroine', 'angel', 'attitude queen'],
+    Gay: ['darling', 'sweetheart', 'gorgeous', 'slay queen'],
     Neutral: ['bangaram'],
   },
   motivate: {
     Male: ['tiger', 'machine', 'boss', 'champion'],
     Female: ['queen', 'boss-lady', 'superstar'],
+    Gay: ['superstar', 'slay queen', 'champion', 'fabulous'],
     Neutral: ['champion'],
   },
 };
@@ -42,6 +45,8 @@ export function getSlangFor(tone: string, gender: string): string[] {
     targetGender = 'Male';
   } else if (gender === 'Female' || gender === 'female') {
     targetGender = 'Female';
+  } else if (gender === 'Gay' || gender === 'gay') {
+    targetGender = 'Gay';
   }
 
   const list = SLANG_MAP[mappedTone]?.[targetGender] || SLANG_MAP[mappedTone]?.Neutral || [];

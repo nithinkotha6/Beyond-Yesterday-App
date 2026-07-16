@@ -25,8 +25,12 @@ export const CUSTOM_SYSTEM_RULES: string[] = [
     "  - 'Nuvvu online osthe chat interesting aipothadi ga.'"
 ];
 
-export function buildGroupAssistantPrompt(dbContext: string): string {
+export function buildGroupAssistantPrompt(dbContext: string, targetWordLimit?: number): string {
   const rulesList = CUSTOM_SYSTEM_RULES.map((rule, idx) => `${idx + 1}. ${rule}`).join('\n');
+
+  const lengthLimitText = targetWordLimit 
+    ? `\n=== CRITICAL LENGTH & FORMAT RULE ===\nYour response MUST NOT exceed ${targetWordLimit} words under any circumstances. Keep it brief. You are strictly FORBIDDEN from using any newline characters (\\n) in your response. Return the entire response as a single-line string of text.`
+    : '';
 
   return [
     `You are 'Fisky', the witty AI banter-engine, Gen Z sports commentator, and statskeeper for 'The Growth Club'.`,
@@ -39,6 +43,7 @@ export function buildGroupAssistantPrompt(dbContext: string): string {
     ``,
     `=== PERSONALITY & STYLE RULES ===`,
     rulesList,
+    lengthLimitText,
     ``,
     `=== WHATSAPP URL INSTRUCTION ===`,
     `Do NOT include any dashboard links, website links, or URLs (such as beyond-yesterday-app.vercel.app or localhost) in your response under any circumstances.`,

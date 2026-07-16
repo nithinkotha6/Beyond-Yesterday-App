@@ -294,6 +294,9 @@ export async function POST(req: Request) {
         ].join('\n');
 
         // E. AI Invocations & Dispatch
+        const incomingWordCount = incomingMessage ? incomingMessage.split(' ').length : 10;
+        const targetWordLimit = Math.max(15, incomingWordCount * 3);
+
         let text = '';
         const promptText = `Message from ${senderName}: ${incomingMessage}`;
 
@@ -306,7 +309,7 @@ export async function POST(req: Request) {
           const result = await executeWithKeyRotation(async (modelInstance) => {
             return generateText({
               model: modelInstance,
-              system: buildGroupAssistantPrompt(dbContext),
+              system: buildGroupAssistantPrompt(dbContext, targetWordLimit),
               messages: finalMessages,
             });
           });

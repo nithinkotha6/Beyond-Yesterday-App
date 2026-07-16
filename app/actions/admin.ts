@@ -161,6 +161,8 @@ export async function adminTriggerPoke(userId: string, groupId: string, tone: st
       resolvedGender = 'Male';
     } else if (genderStyle === 'female') {
       resolvedGender = 'Female';
+    } else if (genderStyle === 'gay') {
+      resolvedGender = 'Gay';
     } else {
       resolvedGender = profile.gender || 'Neutral';
     }

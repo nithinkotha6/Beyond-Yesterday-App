@@ -737,6 +737,7 @@ export default function SettingsClient({
                       { key: 'auto', label: 'Auto (Profile) 🤖' },
                       { key: 'male', label: 'Male Style 👨' },
                       { key: 'female', label: 'Female Style 👩' },
+                      { key: 'gay', label: 'Gay Style 🏳️‍🌈' },
                     ].map((g) => {
                       const isActive = selectedGenderStyle === g.key;
                       return (
