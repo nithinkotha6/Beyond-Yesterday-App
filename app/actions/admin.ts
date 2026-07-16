@@ -120,7 +120,7 @@ export async function adminRemoveMember(userId: string, groupId: string) {
 }
 
 // F. Trigger Poke/Roast Motivation
-export async function adminTriggerPoke(userId: string, groupId: string) {
+export async function adminTriggerPoke(userId: string, groupId: string, tone: string) {
   try {
     const supabase = createAdminClient();
 
@@ -154,8 +154,7 @@ export async function adminTriggerPoke(userId: string, groupId: string) {
 
     // Call Gemini
     const promptText = `Act as @fisky, the witty and trendy Gen-Z AI Referee for a fitness group.
-Write a short, hilarious, and aggressive (yet playful) call-out/roast text message targeting "${userName}" who hasn't logged any workouts/activities in a week.
-Tell them the group is waiting on them and roast them for slacking.
+Write a short, punchy WhatsApp message to "${userName}" in a strictly "${tone}" vibe/tone.
 Keep it under 60 words. Use emojis. Do not use hashtags or markdown formatting (no bold/italics). Just return the plain text.`;
 
     const result = await executeWithKeyRotation(async (modelInstance) => {

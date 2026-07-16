@@ -23,12 +23,6 @@ export default async function SettingsPage() {
   const totalXp = profile ? (profile.total_xp as number) : 0;
   const currentLevel = profile ? (profile.current_level as number) : 1;
 
-  const { data: definitions } = await supabase
-    .from('metric_definitions')
-    .select('*')
-    .eq('group_id', session.groupId)
-    .order('created_at', { ascending: false });
-
   // Query group members defensively (first with role, fall back to simple if missing)
   let membersRaw: unknown[] | null = null;
   const { data: firstTryMembers, error: firstTryError } = await supabase
@@ -55,20 +49,6 @@ export default async function SettingsPage() {
   }
 
   const botMuted = await getBotMuteStatus();
-
-  // Query users who logged workouts in the last 7 days to flag slacking members
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const { data: recentActiveLogs } = await supabase
-    .from('metric_logs')
-    .select('user_id')
-    .eq('group_id', session.groupId)
-    .eq('status', 'verified')
-    .gte('logged_at', sevenDaysAgo.toISOString());
-
-  const activeUserIdsInLast7Days = Array.from(
-    new Set((recentActiveLogs || []).map((l) => l.user_id))
-  );
 
   // Fetch all recent logs of the group for the God Mode Log Editor
   const { data: recentLogsRaw } = await supabase
@@ -102,10 +82,8 @@ export default async function SettingsPage() {
       >
         <SettingsClient 
           session={session} 
-          initialDefinitions={definitions || []} 
           initialMembers={(membersRaw || []) as unknown as GroupMemberRow[]}
           initialBotMuted={botMuted}
-          activeUserIdsInLast7Days={activeUserIdsInLast7Days}
           initialLogs={(recentLogsRaw || []) as unknown as AdminLogItem[]}
         />
       </main>

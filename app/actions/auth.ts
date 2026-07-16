@@ -281,15 +281,22 @@ export async function signUpAction(
       };
     }
 
-    // 3. Generate a new profile with gender
+    // 3. Generate a new profile with sanitized payload matching the active database schema
+    const validGender = (gender === 'Male' || gender === 'Female') ? gender : 'Male';
+    const cleanPin = sanitizedPin;
+    const activeGroupId = group.id;
+
     const { data: newProfile, error: profileError } = await supabase
       .from('profiles')
       .insert({
-        full_name: sanitizedName,
+        full_name: cleanFirstName,
         nickname: nickname.trim() || null,
         email: email.trim() || null,
-        pin: sanitizedPin,
-        gender: gender || null,
+        gender: validGender,
+        pin: cleanPin,
+        group_id: activeGroupId,
+        role: 'member',
+        avatar_url: null,
       })
       .select('id, full_name, nickname, avatar_url')
       .single();
@@ -297,6 +304,9 @@ export async function signUpAction(
     if (profileError || !newProfile) {
       if (profileError) {
         console.error("SIGNUP CRASH:", profileError.message, profileError.details, profileError.code);
+        if (profileError.message.toLowerCase().includes('schema cache')) {
+          console.error("CRITICAL: Run 'NOTIFY pgrst, reload schema;' in Supabase SQL editor.");
+        }
       }
       return { success: false, error: 'Failed to create user profile. The PIN/email may already be registered.' };
     }

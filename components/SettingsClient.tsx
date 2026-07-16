@@ -4,8 +4,6 @@ import React, { useState, useTransition } from 'react';
 import { createMetricDefinition } from '@/app/actions/metrics';
 import { 
   adminResetPin, 
-  adminUpdateMemberRole, 
-  adminRemoveMember, 
   adminToggleBotMute,
   adminTriggerPoke,
   adminEditLog,
@@ -14,13 +12,6 @@ import {
 } from '@/app/actions/admin';
 import { Sliders, Plus, Loader2, CheckCircle, AlertCircle, Search, Edit3, Trash2, Check, X } from 'lucide-react';
 
-interface MetricDefinition {
-  id: string;
-  name: string;
-  unit: string;
-  sort_direction: 'asc' | 'desc';
-  created_at: string;
-}
 
 export interface ProfileDetails {
   id: string;
@@ -59,23 +50,18 @@ export interface AdminLogItem {
 
 export default function SettingsClient({
   session,
-  initialDefinitions,
   initialMembers,
   initialBotMuted,
-  activeUserIdsInLast7Days = [],
   initialLogs = [],
 }: {
   session: SessionData;
-  initialDefinitions: MetricDefinition[];
   initialMembers: GroupMemberRow[];
   initialBotMuted: boolean;
-  activeUserIdsInLast7Days?: string[];
   initialLogs?: AdminLogItem[];
 }) {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [definitions, setDefinitions] = useState<MetricDefinition[]>(initialDefinitions);
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -89,7 +75,7 @@ export default function SettingsClient({
   const [pinInput, setPinInput] = useState('');
   const [pinUnlockError, setPinUnlockError] = useState<string | null>(null);
 
-  const [members, setMembers] = useState<GroupMemberRow[]>(initialMembers);
+  const [members] = useState<GroupMemberRow[]>(initialMembers);
   const [botMuted, setBotMuted] = useState(initialBotMuted);
   const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
 
@@ -104,9 +90,10 @@ export default function SettingsClient({
   const [resetSelectedUser, setResetSelectedUser] = useState('');
   const [newKioskPin, setNewKioskPin] = useState('');
 
-  // Module D: Manual Member Motivation Poke
-  const [pokeSelectedUser, setPokeSelectedUser] = useState('');
-  const [pokeFeedback, setPokeFeedback] = useState<{ success: boolean; message: string } | null>(null);
+  // Module B: AI Tone Dispatcher
+  const [selectedTone, setSelectedTone] = useState('fun-roast');
+  const [toneSelectedUser, setToneSelectedUser] = useState('');
+  const [toneFeedback, setToneFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
   const formatAdminError = (err: unknown): string => {
     if (!err) return 'An unknown error occurred';
@@ -134,7 +121,6 @@ export default function SettingsClient({
         setName('');
         setUnit('');
         setSortDirection('desc');
-        setDefinitions([res.definition, ...definitions]);
         setStatus({ success: true, message: `Metric "${res.definition.name}" successfully created!` });
       } else {
         setStatus({ success: false, message: res.error || 'Failed to create metric.' });
@@ -210,7 +196,7 @@ export default function SettingsClient({
         </svg>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="max-w-2xl mx-auto w-full">
         {/* Creation Form */}
         <section className="bg-white rounded-[24px] border border-slate-200/60 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 md:p-8 flex flex-col gap-4">
           <h2 className="text-lg font-black text-gray-900 tracking-tight flex items-center gap-2">
@@ -291,7 +277,7 @@ export default function SettingsClient({
             <button
               type="submit"
               disabled={isPending || !name.trim() || !unit.trim()}
-              className="flex items-center justify-center gap-2 bg-[#111827] text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px] cursor-pointer mt-2"
+              className="w-full bg-[#111827] hover:bg-black text-white text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 transition"
             >
               {isPending ? (
                 <>
@@ -307,47 +293,12 @@ export default function SettingsClient({
             </button>
           </form>
         </section>
-
-        {/* Existing Trackers List */}
-        <section className="bg-white rounded-[24px] border border-slate-200/60 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 md:p-8 flex flex-col gap-4">
-          <h2 className="text-lg font-black text-gray-900 tracking-tight">
-            Active Custom Trackers
-          </h2>
-          <p className="text-slate-500 text-xs">
-            Dynamic trackers currently registered in the database.
-          </p>
-
-          <div className="flex flex-col gap-2.5 mt-2">
-            {definitions.length > 0 ? (
-              definitions.map((def) => (
-                <div
-                  key={def.id}
-                  className="rounded-2xl p-4 bg-slate-50 border border-slate-200/60 flex items-center justify-between"
-                >
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-sm">{def.name}</h3>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
-                      Unit: {def.unit} · Sort: {def.sort_direction === 'desc' ? 'Highest first' : 'Lowest first'}
-                    </p>
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium font-mono">
-                    {def.id.substring(0, 8)}...
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-10 border border-dashed border-slate-200 rounded-2xl text-xs font-bold text-slate-400">
-                No custom trackers defined yet. Use the form on the left to add one!
-              </div>
-            )}
-          </div>
-        </section>
       </div>
 
       {/* God Mode Administration Console */}
       <hr className="border-slate-200 my-4" />
 
-      <section className="bg-white rounded-[24px] border border-slate-200/60 shadow-[0_8px_30px_rgba(0,0,0,0.04)] p-6 md:p-8 flex flex-col gap-5">
+      <section className="bg-amber-950/10 border border-amber-500/30 rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-6 md:p-8 flex flex-col gap-5 hover:border-amber-500/40 transition-all duration-200">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2 uppercase">
@@ -435,7 +386,7 @@ export default function SettingsClient({
             <div className="flex flex-col gap-6">
               
               {/* Module C: AI Webhook Kill Switch */}
-              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 flex flex-col gap-3">
+              <div className="bg-emerald-950/10 border border-emerald-500/20 rounded-2xl p-5 flex flex-col gap-3 hover:border-emerald-500/40 transition-all duration-200">
                 <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">
                   Module C: AI Bot Control Switch
                 </h3>
@@ -475,7 +426,7 @@ export default function SettingsClient({
               </div>
 
               {/* Module A: 4-Digit Kiosk PIN Reset Tool */}
-              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 flex flex-col gap-4">
+              <div className="bg-blue-950/10 border border-blue-500/20 rounded-2xl p-5 flex flex-col gap-4 hover:border-blue-500/40 transition-all duration-200">
                 <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">
                   Module A: Kiosk Credentials Reset
                 </h3>
@@ -543,181 +494,108 @@ export default function SettingsClient({
                   </button>
                 </form>
               </div>
-
-              {/* Module D: Manual Member Motivation Roast */}
-              <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 flex flex-col gap-4">
-                <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">
-                  Module D: Manual Member Motivation Poke
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Prompt @fisky to generate and dispatch a custom roast message to WhatsApp for members slacking in the last 7 days.
-                </p>
-
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!pokeSelectedUser) return;
-                    setPokeFeedback(null);
-                    setIsSubmittingAdmin(true);
-                    const res = await adminTriggerPoke(pokeSelectedUser, session.groupId);
-                    setIsSubmittingAdmin(false);
-                    if (res.success) {
-                      setPokeFeedback({ success: true, message: `Motivation dispatch sent successfully! Message: "${res.message}"` });
-                      setPokeSelectedUser('');
-                    } else {
-                      setPokeFeedback({ success: false, message: formatAdminError(res.error) || 'Failed to dispatch motivation poke.' });
-                    }
-                  }}
-                  className="flex flex-col gap-3"
-                >
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Select Member
-                    </label>
-                    <select
-                      value={pokeSelectedUser}
-                      onChange={(e) => setPokeSelectedUser(e.target.value)}
-                      required
-                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-xs text-[#111827] bg-white focus:outline-none"
-                    >
-                      <option value="">-- Choose User --</option>
-                      {members.map((m) => {
-                        const isSlacking = !activeUserIdsInLast7Days.includes(m.profiles?.id || '');
-                        return (
-                          <option key={m.user_id} value={m.profiles?.id}>
-                            {m.profiles?.nickname || m.profiles?.full_name} {isSlacking ? '⚠️ (0 Workouts last 7d)' : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmittingAdmin || !pokeSelectedUser}
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 rounded-xl transition cursor-pointer disabled:opacity-40"
-                  >
-                    Trigger Motivation Poke 📣
-                  </button>
-
-                  {pokeFeedback && (
-                    <div className={`mt-2 p-3 text-xs flex items-start gap-2 rounded-xl border ${
-                      pokeFeedback.success
-                        ? 'bg-emerald-50/80 border-emerald-200/50 text-emerald-800'
-                        : 'bg-red-50/80 border-red-200/50 text-red-800'
-                    }`}>
-                      {pokeFeedback.success ? <CheckCircle size={14} className="mt-0.5" /> : <AlertCircle size={14} className="mt-0.5" />}
-                      <span>{pokeFeedback.message}</span>
-                    </div>
-                  )}
-                </form>
-              </div>
-
             </div>
 
-            {/* Module B: Gang & Role Management Table */}
-            <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 flex flex-col gap-4">
+            {/* Module B: AI Tone Dispatcher */}
+            <div className="bg-purple-950/10 border border-purple-500/20 rounded-2xl p-5 flex flex-col gap-4 hover:border-purple-500/30 transition-all duration-200">
               <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">
-                Module B: Gang Room Roster Management
+                Module B: AI Tone Dispatcher
               </h3>
               <p className="text-xs text-slate-500">
-                Promote, demote, or deactivate group member roles.
+                Select a conversational vibe, pick a gang member, and fire an AI broadcast to WhatsApp.
               </p>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase">
-                      <th className="py-2.5">Name</th>
-                      <th className="py-2.5">Role</th>
-                      <th className="py-2.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {members.map((m) => (
-                      <tr key={m.user_id} className="border-b border-slate-100 last:border-0 hover:bg-slate-100/50">
-                        <td className="py-3 font-semibold text-slate-800">
-                          {m.profiles?.nickname || m.profiles?.full_name}
-                        </td>
-                        <td className="py-3">
-                          <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider ${
-                            m.role === 'admin' || m.role === 'co-admin'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-zinc-100 text-zinc-600'
-                          }`}>
-                            {m.role || 'member'}
-                          </span>
-                        </td>
-                        <td className="py-3 text-right flex items-center justify-end gap-1.5 mt-1">
-                          {m.role !== 'co-admin' && m.role !== 'admin' ? (
-                            <button
-                              disabled={isSubmittingAdmin}
-                              onClick={async () => {
-                                setAdminStatus(null);
-                                setIsSubmittingAdmin(true);
-                                const res = await adminUpdateMemberRole(m.profiles?.id || '', session.groupId, 'co-admin');
-                                setIsSubmittingAdmin(false);
-                                if (res.success) {
-                                  setMembers(prev => prev.map(p => p.user_id === m.user_id ? { ...p, role: 'co-admin' } : p));
-                                  setAdminStatus({ success: true, message: 'Member promoted to Co-Admin.' });
-                                } else {
-                                  setAdminStatus({ success: false, message: formatAdminError(res.error) || 'Failed to promote.' });
-                                }
-                              }}
-                              className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-[10px] font-bold"
-                            >
-                              Promote
-                            </button>
-                          ) : (
-                            <button
-                              disabled={isSubmittingAdmin}
-                              onClick={async () => {
-                                setAdminStatus(null);
-                                setIsSubmittingAdmin(true);
-                                const res = await adminUpdateMemberRole(m.profiles?.id || '', session.groupId, 'member');
-                                setIsSubmittingAdmin(false);
-                                if (res.success) {
-                                  setMembers(prev => prev.map(p => p.user_id === m.user_id ? { ...p, role: 'member' } : p));
-                                  setAdminStatus({ success: true, message: 'Co-Admin demoted to Member.' });
-                                } else {
-                                  setAdminStatus({ success: false, message: formatAdminError(res.error) || 'Failed to demote.' });
-                                }
-                              }}
-                              className="px-2 py-1 bg-slate-500 hover:bg-slate-600 text-white rounded text-[10px] font-bold"
-                            >
-                              Demote
-                            </button>
-                          )}
-                          <button
-                            disabled={isSubmittingAdmin}
-                            onClick={async () => {
-                              if (!confirm('Are you sure you want to remove this member from the group?')) return;
-                              setAdminStatus(null);
-                              setIsSubmittingAdmin(true);
-                              const res = await adminRemoveMember(m.profiles?.id || '', session.groupId);
-                              setIsSubmittingAdmin(false);
-                              if (res.success) {
-                                setMembers(prev => prev.filter(p => p.user_id !== m.user_id));
-                                setAdminStatus({ success: true, message: 'Member successfully removed.' });
-                              } else {
-                                setAdminStatus({ success: false, message: formatAdminError(res.error) || 'Failed to remove member.' });
-                              }
-                            }}
-                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold animate-in fade-in duration-150"
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!toneSelectedUser) return;
+                  setToneFeedback(null);
+                  setIsSubmittingAdmin(true);
+                  const res = await adminTriggerPoke(toneSelectedUser, session.groupId, selectedTone);
+                  setIsSubmittingAdmin(false);
+                  if (res.success) {
+                    setToneFeedback({ success: true, message: `Vibe dispatch sent successfully! Message: "${res.message}"` });
+                    setToneSelectedUser('');
+                  } else {
+                    setToneFeedback({ success: false, message: formatAdminError(res.error) || 'Failed to dispatch vibe.' });
+                  }
+                }}
+                className="flex flex-col gap-4"
+              >
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Select Vibe
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { key: 'ragebait', emoji: '😡', label: 'Ragebait' },
+                      { key: 'fun-roast', emoji: '🔥', label: 'Fun-Roast' },
+                      { key: 'sarcastic', emoji: '😏', label: 'Sarcastic' },
+                      { key: 'praise', emoji: '🏆', label: 'Praise' },
+                      { key: 'flirt', emoji: '😘', label: 'Flirt' },
+                      { key: 'motivate', emoji: '💪', label: 'Motivate' },
+                    ].map((t) => {
+                      const isActive = selectedTone === t.key;
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => setSelectedTone(t.key)}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all duration-200 cursor-pointer ${
+                            isActive
+                              ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-purple-300'
+                          }`}
+                        >
+                          {t.emoji} {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Select Member
+                  </label>
+                  <select
+                    value={toneSelectedUser}
+                    onChange={(e) => setToneSelectedUser(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-xs text-[#111827] bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                  >
+                    <option value="">-- Choose User --</option>
+                    {members.map((m) => (
+                      <option key={m.user_id} value={m.profiles?.id}>
+                        {m.profiles?.nickname || m.profiles?.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingAdmin || !toneSelectedUser}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-2.5 rounded-xl transition cursor-pointer disabled:opacity-40 hover:scale-[1.01] active:scale-[0.99] duration-200"
+                >
+                  Dispatch Vibe to WhatsApp 🚀
+                </button>
+
+                {toneFeedback && (
+                  <div className={`mt-2 p-3 text-xs flex items-start gap-2 rounded-xl border ${
+                    toneFeedback.success
+                      ? 'bg-emerald-50/80 border-emerald-200/50 text-emerald-800'
+                      : 'bg-red-50/80 border-red-200/50 text-red-800'
+                  }`}>
+                    {toneFeedback.success ? <CheckCircle size={14} className="mt-0.5" /> : <AlertCircle size={14} className="mt-0.5" />}
+                    <span>{toneFeedback.message}</span>
+                  </div>
+                )}
+              </form>
             </div>
 
             {/* Module E: God Mode Log Editor */}
-            <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 flex flex-col gap-4 col-span-1 lg:col-span-2">
+            <div className="bg-slate-900/40 border border-slate-700 rounded-2xl p-5 flex flex-col gap-4 col-span-1 lg:col-span-2 hover:border-slate-600 transition-all duration-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">
