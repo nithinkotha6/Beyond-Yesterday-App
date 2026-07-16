@@ -27,7 +27,6 @@ export interface ProfileDetails {
   nickname: string | null;
   full_name: string | null;
   avatar_url: string | null;
-  phone_number: string | null;
 }
 
 export interface GroupMemberRow {
@@ -107,6 +106,7 @@ export default function SettingsClient({
 
   // Module D: Manual Member Motivation Poke
   const [pokeSelectedUser, setPokeSelectedUser] = useState('');
+  const [pokeFeedback, setPokeFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
   const formatAdminError = (err: unknown): string => {
     if (!err) return 'An unknown error occurred';
@@ -513,7 +513,7 @@ export default function SettingsClient({
                       <option value="">-- Choose User --</option>
                       {members.map((m) => (
                         <option key={m.user_id} value={m.profiles?.id}>
-                          {m.profiles?.nickname || m.profiles?.full_name} ({m.profiles?.phone_number || 'No phone'})
+                          {m.profiles?.nickname || m.profiles?.full_name}
                         </option>
                       ))}
                     </select>
@@ -557,15 +557,15 @@ export default function SettingsClient({
                   onSubmit={async (e) => {
                     e.preventDefault();
                     if (!pokeSelectedUser) return;
-                    setAdminStatus(null);
+                    setPokeFeedback(null);
                     setIsSubmittingAdmin(true);
                     const res = await adminTriggerPoke(pokeSelectedUser, session.groupId);
                     setIsSubmittingAdmin(false);
                     if (res.success) {
-                      setAdminStatus({ success: true, message: `Motivation dispatch sent successfully! Message: "${res.message}"` });
+                      setPokeFeedback({ success: true, message: `Motivation dispatch sent successfully! Message: "${res.message}"` });
                       setPokeSelectedUser('');
                     } else {
-                      setAdminStatus({ success: false, message: res.error || 'Failed to dispatch motivation poke.' });
+                      setPokeFeedback({ success: false, message: formatAdminError(res.error) || 'Failed to dispatch motivation poke.' });
                     }
                   }}
                   className="flex flex-col gap-3"
@@ -599,6 +599,17 @@ export default function SettingsClient({
                   >
                     Trigger Motivation Poke 📣
                   </button>
+
+                  {pokeFeedback && (
+                    <div className={`mt-2 p-3 text-xs flex items-start gap-2 rounded-xl border ${
+                      pokeFeedback.success
+                        ? 'bg-emerald-50/80 border-emerald-200/50 text-emerald-800'
+                        : 'bg-red-50/80 border-red-200/50 text-red-800'
+                    }`}>
+                      {pokeFeedback.success ? <CheckCircle size={14} className="mt-0.5" /> : <AlertCircle size={14} className="mt-0.5" />}
+                      <span>{pokeFeedback.message}</span>
+                    </div>
+                  )}
                 </form>
               </div>
 
@@ -627,9 +638,6 @@ export default function SettingsClient({
                       <tr key={m.user_id} className="border-b border-slate-100 last:border-0 hover:bg-slate-100/50">
                         <td className="py-3 font-semibold text-slate-800">
                           {m.profiles?.nickname || m.profiles?.full_name}
-                          <div className="text-[10px] text-slate-400 font-normal">
-                            {m.profiles?.phone_number || 'No phone'}
-                          </div>
                         </td>
                         <td className="py-3">
                           <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase tracking-wider ${
@@ -653,7 +661,7 @@ export default function SettingsClient({
                                   setMembers(prev => prev.map(p => p.user_id === m.user_id ? { ...p, role: 'co-admin' } : p));
                                   setAdminStatus({ success: true, message: 'Member promoted to Co-Admin.' });
                                 } else {
-                                  setAdminStatus({ success: false, message: res.error || 'Failed to promote.' });
+                                  setAdminStatus({ success: false, message: formatAdminError(res.error) || 'Failed to promote.' });
                                 }
                               }}
                               className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-[10px] font-bold"
@@ -672,7 +680,7 @@ export default function SettingsClient({
                                   setMembers(prev => prev.map(p => p.user_id === m.user_id ? { ...p, role: 'member' } : p));
                                   setAdminStatus({ success: true, message: 'Co-Admin demoted to Member.' });
                                 } else {
-                                  setAdminStatus({ success: false, message: res.error || 'Failed to demote.' });
+                                  setAdminStatus({ success: false, message: formatAdminError(res.error) || 'Failed to demote.' });
                                 }
                               }}
                               className="px-2 py-1 bg-slate-500 hover:bg-slate-600 text-white rounded text-[10px] font-bold"
@@ -692,7 +700,7 @@ export default function SettingsClient({
                                 setMembers(prev => prev.filter(p => p.user_id !== m.user_id));
                                 setAdminStatus({ success: true, message: 'Member successfully removed.' });
                               } else {
-                                setAdminStatus({ success: false, message: res.error || 'Failed to remove member.' });
+                                setAdminStatus({ success: false, message: formatAdminError(res.error) || 'Failed to remove member.' });
                               }
                             }}
                             className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold animate-in fade-in duration-150"

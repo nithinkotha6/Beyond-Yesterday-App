@@ -52,14 +52,13 @@ export default function LandingPage() {
   const [signUpNickname, setSignUpNickname] = useState('');
   const [signUpEmail, setSignUpEmail]   = useState('');
   const [signUpPin, setSignUpPin]       = useState('');
-  const [signUpPhone, setSignUpPhone]   = useState('');
   const [signUpGender, setSignUpGender] = useState('Male');
   const [signUpError, setSignUpError]   = useState<string | null>(null);
   const [hasPlayedNameAudio, setHasPlayedNameAudio] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Success welcome animation state
-  const [loggedInUser, setLoggedInUser] = useState<{ name: string; avatarUrl?: string | null } | null>(null);
+  const [loggedInUser, setLoggedInUser] = useState<{ name: string; avatarUrl?: string | null; avatar_url?: string | null } | null>(null);
   const [groupCollages, setGroupCollages] = useState<GroupProfile[]>([]);
 
   // Fetch groups and preload sounds on mount
@@ -165,13 +164,6 @@ export default function LandingPage() {
     setIsSubmitting(true);
     setSignUpError(null);
 
-    if (!signUpPhone.trim()) {
-      playAudio('who-are-you.mp3');
-      setSignUpError('Phone Number is required.');
-      setIsSubmitting(false);
-      return;
-    }
-
     if (signUpPin.length !== 4) {
       playAudio('who-are-you.mp3');
       setSignUpError('PIN must be exactly 4 digits.');
@@ -187,7 +179,6 @@ export default function LandingPage() {
           signUpNickname,
           signUpEmail,
           signUpPin,
-          signUpPhone,
           signUpGender
         );
 
@@ -213,7 +204,7 @@ export default function LandingPage() {
     if (firstName === 'pixie') {
       firstName = 'nithin';
     }
-    const userImgSrc = loggedInUser.avatarUrl || `/avatars/${firstName}.jpg`;
+    const userImgSrc = loggedInUser.avatarUrl || loggedInUser.avatar_url || `/avatars/${firstName}.jpg`;
 
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-4">
@@ -510,25 +501,7 @@ export default function LandingPage() {
                   />
                 </div>
 
-                {/* Phone Number */}
-                <div>
-                  <label className="block text-[11px] font-bold tracking-wider text-[#6B7280] uppercase mb-1.5">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={signUpPhone}
-                    onChange={e => {
-                      const cleaned = e.target.value.replace(/[^\d+]/g, '');
-                      setSignUpPhone(cleaned);
-                      setSignUpError(null);
-                    }}
-                    required
-                    placeholder="e.g. +1234567890"
-                    disabled={isPending}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
-                  />
-                </div>
+
 
                 {/* Gender */}
                 <div>

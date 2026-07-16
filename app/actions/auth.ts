@@ -15,7 +15,6 @@ const SignUpSchema = z.object({
   nickname: z.string().trim().optional(),
   email: z.string().trim().email('Invalid email address').or(z.literal('')),
   pin: z.string().trim().length(4, 'PIN must be exactly 4 digits'),
-  phoneNumber: z.string().trim().min(10, 'Please enter a valid 10-digit phone number'),
   gender: z.enum(['Male', 'Female']),
 });
 import {
@@ -214,7 +213,6 @@ export async function signUpAction(
   nickname: string,
   email: string,
   pin: string,
-  phoneNumber: string,
   gender: string,
 ): Promise<SignUpResult> {
   const validation = SignUpSchema.safeParse({
@@ -223,7 +221,6 @@ export async function signUpAction(
     nickname,
     email,
     pin,
-    phoneNumber,
     gender,
   });
 
@@ -232,11 +229,6 @@ export async function signUpAction(
   }
 
   const { firstName: sanitizedName, pin: sanitizedPin, inviteCode: sanitizedInvite } = validation.data;
-
-  const cleanPhone = phoneNumber.replace(/\D/g, '');
-  if (cleanPhone.length < 10) {
-    return { success: false, error: 'Please enter a valid 10-digit phone number.' };
-  }
 
   try {
     const supabase = createAdminClient();
@@ -253,22 +245,43 @@ export async function signUpAction(
       return { success: false, error: 'Invalid Group Code' };
     }
 
-    // 2. Prevent duplicate accounts by phone_number across the entire platform
-    const { data: phoneDuplicate, error: phoneDupError } = await supabase
+    // 2. Prevent duplicate accounts by composite Name + (Nickname OR Email)
+    const cleanFirstName = sanitizedName.trim();
+    const cleanNickname = nickname.trim().toLowerCase();
+    const cleanEmail = email.trim().toLowerCase();
+
+    let orCondition = 'id.eq.00000000-0000-0000-0000-000000000000'; // Default false condition
+    const conditions: string[] = [];
+    if (cleanNickname) {
+      conditions.push(`nickname.ilike.${cleanNickname}`);
+    }
+    if (cleanEmail) {
+      conditions.push(`email.ilike.${cleanEmail}`);
+    }
+    if (conditions.length > 0) {
+      orCondition = conditions.join(',');
+    }
+
+    const { data: existingUser, error: queryError } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('phone_number', cleanPhone)
+      .select('id, full_name, nickname, email')
+      .eq('full_name', cleanFirstName)
+      .or(orCondition)
       .maybeSingle();
 
-    if (phoneDupError) {
-      console.error("Sign-up uniqueness check failed:", phoneDupError);
-      return { success: false, error: 'Failed to verify unique account.' };
-    }
-    if (phoneDuplicate) {
-      return { success: false, error: 'This phone number is already registered. Please log in instead.' };
+    if (queryError) {
+      console.error("Database query failed during composite uniqueness check:", queryError);
+      return { success: false, error: "Database connection error. Please try again." };
     }
 
-    // 3. Generate a new profile with phone_number and gender
+    if (existingUser) {
+      return { 
+        success: false,
+        error: "An account with this Name, Nickname, and Email combination already exists. Please log in with your 4-digit PIN instead." 
+      };
+    }
+
+    // 3. Generate a new profile with gender
     const { data: newProfile, error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -276,7 +289,6 @@ export async function signUpAction(
         nickname: nickname.trim() || null,
         email: email.trim() || null,
         pin: sanitizedPin,
-        phone_number: cleanPhone,
         gender: gender || null,
       })
       .select('id, full_name, nickname, avatar_url')

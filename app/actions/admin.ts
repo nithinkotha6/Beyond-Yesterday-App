@@ -3,6 +3,22 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { generateText } from 'ai';
 import { executeWithKeyRotation } from '@/utils/geminiPool';
+function getErrorMessage(err: unknown): string {
+  if (!err) return 'An unknown error occurred';
+  if (typeof err === 'string') return err;
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object') {
+    if ('message' in err && typeof (err as { message: unknown }).message === 'string') {
+      return (err as { message: string }).message;
+    }
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
 
 // A. Check Bot Mute Status
 export async function getBotMuteStatus(): Promise<boolean> {
@@ -32,7 +48,7 @@ export async function adminToggleBotMute(isMuted: boolean) {
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
+    const errMsg = getErrorMessage(err);
     console.error('Failed to toggle bot mute:', err);
     return { success: false, error: errMsg };
   }
@@ -55,7 +71,7 @@ export async function adminResetPin(userId: string, newPin: string) {
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
+    const errMsg = getErrorMessage(err);
     console.error('Failed to reset PIN:', err);
     return { success: false, error: errMsg };
   }
@@ -78,7 +94,7 @@ export async function adminUpdateMemberRole(userId: string, groupId: string, new
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
+    const errMsg = getErrorMessage(err);
     console.error('Failed to update member role:', err);
     return { success: false, error: errMsg };
   }
@@ -97,7 +113,7 @@ export async function adminRemoveMember(userId: string, groupId: string) {
     if (error) throw error;
     return { success: true };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
+    const errMsg = getErrorMessage(err);
     console.error('Failed to remove member:', err);
     return { success: false, error: errMsg };
   }
@@ -174,7 +190,7 @@ Keep it under 60 words. Use emojis. Do not use hashtags or markdown formatting (
 
     return { success: true, message: reply };
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
+    const errMsg = getErrorMessage(err);
     console.error('Failed to trigger poke:', err);
     return { success: false, error: errMsg };
   }
@@ -194,7 +210,7 @@ export async function adminEditLog(logId: string, newValue: number) {
     return { success: true };
   } catch (err) {
     console.error('[adminEditLog] Error editing log:', err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return { success: false, error: getErrorMessage(err) };
   }
 }
 
@@ -210,7 +226,7 @@ export async function adminVerifyLog(logId: string) {
     return { success: true };
   } catch (err) {
     console.error('[adminVerifyLog] Error verifying log:', err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return { success: false, error: getErrorMessage(err) };
   }
 }
 
@@ -226,6 +242,6 @@ export async function adminDeleteLog(logId: string) {
     return { success: true };
   } catch (err) {
     console.error('[adminDeleteLog] Error deleting log:', err);
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+    return { success: false, error: getErrorMessage(err) };
   }
 }

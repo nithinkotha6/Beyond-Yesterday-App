@@ -29,19 +29,19 @@ export default async function SettingsPage() {
     .eq('group_id', session.groupId)
     .order('created_at', { ascending: false });
 
-  // Query group members defensively (first with role & phone_number, fall back to simple if missing)
+  // Query group members defensively (first with role, fall back to simple if missing)
   let membersRaw: unknown[] | null = null;
   const { data: firstTryMembers, error: firstTryError } = await supabase
     .from('group_members')
     .select(`
       user_id,
       role,
-      profiles!inner ( id, nickname, full_name, avatar_url, phone_number )
+      profiles!inner ( id, nickname, full_name, avatar_url )
     `)
     .eq('group_id', session.groupId);
 
   if (firstTryError) {
-    console.warn('[settings/metrics] First members query failed (likely missing columns), retrying simple columns:', firstTryError.message);
+    console.warn('[settings/metrics] First members query failed (likely missing role), retrying simple columns:', firstTryError.message);
     const { data: secondTryMembers } = await supabase
       .from('group_members')
       .select(`
