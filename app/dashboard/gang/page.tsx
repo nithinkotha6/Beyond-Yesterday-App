@@ -1,56 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Users, Loader2 } from 'lucide-react';
+import useSWR from 'swr';
 import { fetchGangRoster, GangProfile } from '@/app/actions/gang';
 import UserAvatar from '@/components/UserAvatar';
 
-// Roster memory cache to avoid flicker on tab switching
-let cachedRosterData: {
-  groupName: string;
-  roster: GangProfile[];
-} | null = null;
-
 export default function GangPage() {
-  const [roster, setRoster] = useState<GangProfile[]>(() => cachedRosterData?.roster || []);
-  const [groupName, setGroupName] = useState<string>(() => cachedRosterData?.groupName || 'Texas Buds');
-  const [loading, setLoading] = useState<boolean>(() => cachedRosterData === null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, isLoading } = useSWR('gang-roster', () => fetchGangRoster(), {
+    revalidateOnFocus: false,
+    dedupingInterval: 3600000, // 1 hour stale time cache
+  });
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const res = await fetchGangRoster();
-        if (!active) return;
-        if (res.success) {
-          setRoster(res.roster);
-          setGroupName(res.groupName);
-          setError(null);
-          cachedRosterData = {
-            groupName: res.groupName,
-            roster: res.roster,
-          };
-        } else {
-          setError(res.error || 'Failed to load gang roster.');
-        }
-      } catch (err) {
-        if (active) {
-          setError('Failed to fetch roster data.');
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-    load();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const roster = data?.success ? data.roster : [];
+  const groupName = data?.success ? data.groupName : 'Texas Buds';
+  const fetchError = error ? 'Failed to fetch roster data.' : (!data?.success && data?.error ? data.error : null);
 
-  if (loading) {
+  if (isLoading && !data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-god-canvas min-h-screen">
         <Loader2 className="w-8 h-8 text-god-orange animate-spin" />
@@ -75,9 +41,9 @@ export default function GangPage() {
         </svg>
       </header>
 
-      {error && (
+      {fetchError && (
         <div className="bg-god-red/10 border border-god-red/35 text-god-red px-4 py-3 rounded-xl text-xs font-bold mb-4">
-          {error}
+          {fetchError}
         </div>
       )}
 
@@ -128,11 +94,13 @@ export default function GangPage() {
           })}
         </div>
       ) : (
-        <div className="bg-god-black rounded-[24px] border border-god-blue shadow-[0_2px_10px_rgba(0,0,0,0.2)] p-12 text-center flex flex-col items-center justify-center gap-2">
-          <Users size={32} className="text-god-silver" />
-          <p className="text-sm font-bold text-slate-100">Your gang has no athletes yet.</p>
-          <p className="text-xs text-god-silver">Use your group invite code during signup to add members!</p>
-        </div>
+        !isLoading && (
+          <div className="bg-god-black rounded-[24px] border border-god-blue shadow-[0_2px_10px_rgba(0,0,0,0.2)] p-12 text-center flex flex-col items-center justify-center gap-2">
+            <Users size={32} className="text-god-silver" />
+            <p className="text-sm font-bold text-slate-100">Your gang has no athletes yet.</p>
+            <p className="text-xs text-god-silver">Use your group invite code during signup to add members!</p>
+          </div>
+        )
       )}
     </div>
   );
