@@ -1,10 +1,10 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 export const MODEL_CASCADE = [
-  'gemini-2.5-flash-lite', // Primary workhorse
-  'gemini-1.5-flash',      // Ultra-stable fallback
-  'gemini-2.0-flash-lite', // Alternative lightweight tier
-  'gemini-3.5-flash'       // High-intelligence tier
+  'gemini-1.5-flash',      // Primary stable workhorse (1,500 RPD free tier)
+  'gemini-2.0-flash-lite', // Lighter next-gen fallback
+  'gemini-3.1-flash-lite', // Alternative low-latency endpoint
+  'gemini-1.5-pro'         // High-intelligence fallback
 ] as const;
 
 export type CascadeModel = typeof MODEL_CASCADE[number];

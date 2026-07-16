@@ -735,7 +735,7 @@ export default function SettingsClient({
                 </div>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200/60 rounded-xl bg-white">
+              <div className="max-h-[450px] overflow-y-auto overflow-x-auto border border-slate-200/60 rounded-xl bg-white">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-100/75 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">

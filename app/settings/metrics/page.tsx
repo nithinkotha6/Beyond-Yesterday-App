@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { decodeSession, SESSION_COOKIE } from '@/lib/session';
-import { createAdminClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import Sidebar from '@/components/Sidebar';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import SettingsClient, { type GroupMemberRow, type AdminLogItem } from '@/components/SettingsClient';
@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   const session = token ? await decodeSession(token) : null;
   if (!session) redirect('/');
 
-  const supabase = createAdminClient();
+  const supabase = await createClient();
   const { data: profile } = await supabase
     .from('profiles')
     .select('total_xp, current_level')
@@ -29,8 +29,9 @@ export default async function SettingsPage() {
     .eq('group_id', session.groupId)
     .order('created_at', { ascending: false });
 
-  // Query group members to pass to SettingsClient
-  const { data: membersRaw } = await supabase
+  // Query group members defensively (first with role & phone_number, fall back to simple if missing)
+  let membersRaw: unknown[] | null = null;
+  const { data: firstTryMembers, error: firstTryError } = await supabase
     .from('group_members')
     .select(`
       user_id,
@@ -38,6 +39,20 @@ export default async function SettingsPage() {
       profiles!inner ( id, nickname, full_name, avatar_url, phone_number )
     `)
     .eq('group_id', session.groupId);
+
+  if (firstTryError) {
+    console.warn('[settings/metrics] First members query failed (likely missing columns), retrying simple columns:', firstTryError.message);
+    const { data: secondTryMembers } = await supabase
+      .from('group_members')
+      .select(`
+        user_id,
+        profiles!inner ( id, nickname, full_name, avatar_url )
+      `)
+      .eq('group_id', session.groupId);
+    membersRaw = secondTryMembers;
+  } else {
+    membersRaw = firstTryMembers;
+  }
 
   const botMuted = await getBotMuteStatus();
 
