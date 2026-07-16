@@ -8,6 +8,7 @@ import { sendWhatsAppGroupMessage } from '@/lib/whatsapp';
 import { buildGroupAssistantPrompt } from '@/lib/ai/prompts';
 import { createAdminClient } from '@/lib/supabase/server';
 import { safeCompare } from '@/lib/security';
+import { executeWithKeyRotation, AllKeysExhaustedError } from '@/utils/geminiPool';
 
 interface ProfileDetails {
   id: string;
@@ -175,7 +176,7 @@ export async function POST(req: Request) {
             } else {
               // Chronological order, strictly last 8 messages
               const chronoHistory = dbHistory.slice().reverse();
-              const slicedHistory = chronoHistory.slice(-8);
+              const slicedHistory = chronoHistory.slice(-4);
               formattedHistory = slicedHistory.map((h) => ({
                 role: h.role as 'user' | 'assistant',
                 content: h.content,
@@ -303,15 +304,17 @@ export async function POST(req: Request) {
         ];
 
         try {
-          const result = await generateText({
-            model: googleProvider('gemini-3.5-flash'),
-            system: buildGroupAssistantPrompt(dbContext),
-            messages: finalMessages,
+          const result = await executeWithKeyRotation(async (provider) => {
+            return generateText({
+              model: provider('gemini-3.5-flash'),
+              system: buildGroupAssistantPrompt(dbContext),
+              messages: finalMessages,
+            });
           });
           text = result.text;
         } catch (llmError) {
-          console.error('[webhook/whatsapp] LLM execution error:', llmError);
-          text = `🤖 "Hold on, my circuits are slightly warm right now. Give me a brief moment!"`;
+          console.error("AI execution failed or keys exhausted. Silently dropping reply to prevent spam.", llmError);
+          return NextResponse.json({ status: "rate_limited_silenced" }, { status: 200 });
         }
 
         // Send LLM response back to the group

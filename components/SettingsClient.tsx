@@ -108,6 +108,17 @@ export default function SettingsClient({
   // Module D: Manual Member Motivation Poke
   const [pokeSelectedUser, setPokeSelectedUser] = useState('');
 
+  const formatAdminError = (err: any): string => {
+    if (!err) return 'An unknown error occurred';
+    if (typeof err === 'string') return err;
+    if (err.message && typeof err.message === 'string') return err.message;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStatus(null);
@@ -440,13 +451,18 @@ export default function SettingsClient({
                         const targetVal = e.target.checked;
                         setIsSubmittingAdmin(true);
                         setAdminStatus(null);
-                        const res = await adminToggleBotMute(targetVal);
-                        setIsSubmittingAdmin(false);
-                        if (res.success) {
-                          setBotMuted(targetVal);
-                          setAdminStatus({ success: true, message: `Webhook successfully ${targetVal ? 'muted' : 'unmuted'}.` });
-                        } else {
-                          setAdminStatus({ success: false, message: res.error || 'Failed to toggle mute status.' });
+                        try {
+                          const res = await adminToggleBotMute(targetVal);
+                          setIsSubmittingAdmin(false);
+                          if (res.success) {
+                            setBotMuted(targetVal);
+                            setAdminStatus({ success: true, message: `Webhook successfully ${targetVal ? 'muted' : 'unmuted'}.` });
+                          } else {
+                            setAdminStatus({ success: false, message: formatAdminError(res.error) || 'Failed to toggle mute status.' });
+                          }
+                        } catch (err) {
+                          setIsSubmittingAdmin(false);
+                          setAdminStatus({ success: false, message: formatAdminError(err) });
                         }
                       }}
                     />
