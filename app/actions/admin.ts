@@ -239,7 +239,7 @@ The target user's gender-style is "${resolvedGender}".
 
 Rules:
 1. The message MUST be written in conversational Romanized Telugu (Telugu words spelled out using English alphabet / Latin characters, e.g., "enti bro", "em chestunnav", "workout ekkada?"), mixed with fun Telugu slang and Gen-Z humor.
-2. Under appropriate tones, unleash Tollywood pop culture humor, movie dialogues, or star actor style references (e.g., Balakrishna, NTR, Prabhas, Pushpa style) to make it extremely funny. ${loreInstruction}${slangInstruction}
+2. Under appropriate tones, unleash Tollywood pop culture humor, movie dialogues, or star actor style references. You are STRICTLY FORBIDDEN from using repetitive "Baahubali", "RRR", "Pushpa", or "Thaggedhele" references. Instead, dynamically rotate or reference new-age Hyderabadi cinema (DJ Tillu, Tharun Bhascker vibes, "Atluntadi manatho", "Radhika level deception"), classic comedy expressions (Brahmanandam, Sunil style, "Antha scene ledu", "Evadra nuvvu..."), or movie punch dialogue parodies (Balayya, Trivikram style parodies). ${loreInstruction}${slangInstruction}
 3. If a gang nemesis is listed above, mention them or compare target to them in a funny way.
 4. Keep the message under 60 words. Use emojis. Do not use hashtags or markdown formatting (no bold/italics). Just return the plain text.`;
 
