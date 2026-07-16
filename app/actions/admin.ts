@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { generateText } from 'ai';
 import { executeWithKeyRotation } from '@/utils/geminiPool';
+import { getSlangFor } from '@/utils/slangRouter';
 function getErrorMessage(err: unknown): string {
   if (!err) return 'An unknown error occurred';
   if (typeof err === 'string') return err;
@@ -164,6 +165,36 @@ export async function adminTriggerPoke(userId: string, groupId: string, tone: st
       resolvedGender = profile.gender || 'Neutral';
     }
 
+    // Resolve member lore defensively to handle cases where the database is missing the table
+    let lore: any = null;
+    let nemesisName = '';
+    try {
+      const { data: loreData } = await supabase
+        .from('member_lore')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (loreData) {
+        lore = loreData;
+        if (loreData.nemesis_id) {
+          const { data: nemesisProfile } = await supabase
+            .from('profiles')
+            .select('nickname, full_name')
+            .eq('id', loreData.nemesis_id)
+            .maybeSingle();
+          if (nemesisProfile) {
+            nemesisName = nemesisProfile.nickname || nemesisProfile.full_name || '';
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[adminTriggerPoke] Failed to fetch member lore defensively:', err);
+    }
+
+    // Fetch routed slang words
+    const slangWords = getSlangFor(tone, resolvedGender);
+
     // Resolve group info for Green API details
     const { data: group } = await supabase
       .from('groups')
@@ -179,21 +210,36 @@ export async function adminTriggerPoke(userId: string, groupId: string, tone: st
       return { success: false, error: 'WhatsApp is not configured for this group.' };
     }
 
+    // Build prompt dynamic parts
+    let loreInstruction = '';
+    if (lore) {
+      const stuntsStr = (lore.stunts && lore.stunts.length > 0) ? `Inside joke stunts/events: ${lore.stunts.join(', ')}` : '';
+      const goodHabitsStr = (lore.good_habits && lore.good_habits.length > 0) ? `Good habits: ${lore.good_habits.join(', ')}` : '';
+      const badHabitsStr = (lore.bad_habits && lore.bad_habits.length > 0) ? `Bad habits: ${lore.bad_habits.join(', ')}` : '';
+      const egoTriggerStr = lore.ego_trigger ? `Ego trigger (what makes them tick): "${lore.ego_trigger}"` : '';
+      const catchphraseStr = lore.catchphrase ? `Their catchphrase: "${lore.catchphrase}"` : '';
+      const nemesisStr = nemesisName ? `Their gang nemesis: "${nemesisName}"` : '';
+
+      const loreParts = [stuntsStr, goodHabitsStr, badHabitsStr, egoTriggerStr, catchphraseStr, nemesisStr].filter(Boolean);
+      if (loreParts.length > 0) {
+        loreInstruction = `\nIntegrate the following user-specific inside joke lore/traits dynamically:\n${loreParts.join('\n')}`;
+      }
+    }
+
+    const slangInstruction = (slangWords.length > 0)
+      ? `\nYou MUST naturally incorporate one or more of these routed friendly-insult/banter expressions: ${slangWords.map(s => `"${s}"`).join(', ')}`
+      : '';
+
     // Call Gemini
     const promptText = `Act as @fisky, the witty and trendy Gen-Z AI Referee for a Telugu fitness group.
 Write a short, punchy WhatsApp message to "${userName}" in a strictly "${tone}" vibe/tone.
 The target user's gender-style is "${resolvedGender}".
-The message MUST be written in conversational Romanized Telugu (Telugu words spelled out using English alphabet / Latin characters, e.g., "enti bro", "em chestunnav", "workout ekkada?"), mixed with fun Telugu slang and Gen-Z humor.
 
-When the selected tone calls for it, you can naturally use colloquial friendly Telugu slang/banter expressions. The supported vocabulary includes:
-- "bang@m-sulii" (used for general or male/female style)
-- "pichi-l@mja" (strictly for female style/context)
-- "kothi-badcow" (for general or male style/context)
-- "ment@l-mund" (strictly for female style/context)
-- "adavi manishi" (general style/context)
-
-Ensure you use these words naturally and in the correct style/gender context (e.g. do not use female-targeted words like "pichi-l@mja" or "ment@l-mund" if resolvedGender is Male). Treat these expressions as valid conversational friendly-roast language.
-Keep it under 60 words. Use emojis. Do not use hashtags or markdown formatting (no bold/italics). Just return the plain text.`;
+Rules:
+1. The message MUST be written in conversational Romanized Telugu (Telugu words spelled out using English alphabet / Latin characters, e.g., "enti bro", "em chestunnav", "workout ekkada?"), mixed with fun Telugu slang and Gen-Z humor.
+2. Under appropriate tones, unleash Tollywood pop culture humor, movie dialogues, or star actor style references (e.g., Balakrishna, NTR, Prabhas, Pushpa style) to make it extremely funny. ${loreInstruction}${slangInstruction}
+3. If a gang nemesis is listed above, mention them or compare target to them in a funny way.
+4. Keep the message under 60 words. Use emojis. Do not use hashtags or markdown formatting (no bold/italics). Just return the plain text.`;
 
     const result = await executeWithKeyRotation(async (modelInstance) => {
       return generateText({
