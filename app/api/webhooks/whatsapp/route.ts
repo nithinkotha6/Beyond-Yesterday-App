@@ -294,6 +294,61 @@ export async function POST(req: Request) {
           });
 
         // D. Format contexts into text block (Pillar 1 Empty/Null Safeties)
+        // ── Query bot persistent state ───────────────────────────────────────
+        const { data: persistentState } = await supabaseAdmin
+          .from('bot_persistent_state')
+          .select('persistent_mood, target_user_id')
+          .eq('group_id', groupId)
+          .maybeSingle();
+
+        let persistentMoodDirective = null;
+        if (persistentState && persistentState.persistent_mood !== 'Normal') {
+          const mood = persistentState.persistent_mood;
+          let targetName = null;
+          if (persistentState.target_user_id) {
+            const { data: targetProfile } = await supabaseAdmin
+              .from('profiles')
+              .select('nickname, full_name')
+              .eq('id', persistentState.target_user_id)
+              .maybeSingle();
+            if (targetProfile) {
+              targetName = targetProfile.nickname || targetProfile.full_name;
+            }
+          }
+
+          if (targetName) {
+            persistentMoodDirective = `Your persistent mood is "${mood}" specifically directed towards member "${targetName}". Maintain this emotional tone, attitude, and vibe in all your remarks to or about them!`;
+          } else {
+            persistentMoodDirective = `Your persistent mood is "${mood}" globally for all group members. Adopt and maintain this emotional attitude, style, and tone in all your replies!`;
+          }
+        }
+
+        // ── Find active group members & 7-day inactivity slackers ──────────
+        const { data: groupMembers } = await supabaseAdmin
+          .from('group_members')
+          .select('user_id, profiles(id, nickname, full_name, is_active)')
+          .eq('group_id', groupId);
+
+        const activeMembers = (groupMembers || [])
+          .map((m) => m.profiles as any)
+          .filter((p) => p && p.is_active !== false);
+
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: recentLogs7d } = await supabaseAdmin
+          .from('metric_logs')
+          .select('user_id')
+          .eq('group_id', groupId)
+          .eq('status', 'verified')
+          .gte('logged_at', sevenDaysAgo);
+
+        const activeUserIdsWithLogs = new Set((recentLogs7d || []).map((l) => l.user_id));
+        const slackers = activeMembers.filter((m) => !activeUserIdsWithLogs.has(m.id));
+
+        let slackerDirective = null;
+        if (slackers.length > 0) {
+          const slackerNames = slackers.map((s) => s.nickname || s.full_name).join(', ');
+          slackerDirective = `CRITICAL SLACKER LIST: The following group members have logged ZERO activities in the last 7 days: [${slackerNames}]. Actively mock, shame, and make fun of their laziness (specifically targeting their names if relevant)! Call them "slackers" or use funny Romanized Telugu shaming terms (e.g. adavi manishi, waste fellow).`;
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const recentActivitiesText = (recentLogs || []).map((log: any) => {
           const name = log.profiles?.nickname || log.profiles?.full_name || 'Someone';
@@ -336,7 +391,9 @@ export async function POST(req: Request) {
                 targetWordLimit,
                 senderGender,
                 senderNickname || senderName,
-                triggerInterruption
+                triggerInterruption,
+                persistentMoodDirective,
+                slackerDirective
               ),
               messages: finalMessages,
             });

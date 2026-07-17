@@ -67,6 +67,16 @@ export default async function SettingsPage() {
     .order('logged_at', { ascending: false })
     .limit(100);
 
+  // Fetch bot persistent state for the group
+  const { data: persistentState } = await supabase
+    .from('bot_persistent_state')
+    .select('persistent_mood, target_user_id')
+    .eq('group_id', session.groupId)
+    .maybeSingle();
+
+  const initialPersistentMood = persistentState?.persistent_mood || 'Normal';
+  const initialPersistentTarget = persistentState?.target_user_id || '';
+
   return (
     <div className="flex min-h-screen">
       <Sidebar
@@ -85,6 +95,8 @@ export default async function SettingsPage() {
           initialMembers={(membersRaw || []) as unknown as GroupMemberRow[]}
           initialBotMuted={botMuted}
           initialLogs={(recentLogsRaw || []) as unknown as AdminLogItem[]}
+          initialPersistentMood={initialPersistentMood}
+          initialPersistentTarget={initialPersistentTarget}
         />
       </main>
       <MobileBottomNav />

@@ -6,18 +6,10 @@ import { cookies } from 'next/headers';
 import { SESSION_COOKIE, decodeSession } from '@/lib/session';
 
 /**
- * Ensures the metric name contains exactly one emoji.
- * If the user has already included an emoji, we return it as is (deduplicated).
- * If no emoji is found, we prepend a default '📊 ' emoji.
+ * Ensures the metric name is returned exactly as entered.
  */
 function ensureNameHasEmoji(name: string): string {
-  // Regex pattern matching standard emoji character ranges
-  const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F1E6}-\u{1F1FF}]/u;
-  const trimmed = name.trim();
-  if (!emojiRegex.test(trimmed)) {
-    return `📊 ${trimmed}`;
-  }
-  return trimmed;
+  return name;
 }
 
 export async function createMetricDefinition(name: string, unit: string, sortDirection: 'asc' | 'desc') {

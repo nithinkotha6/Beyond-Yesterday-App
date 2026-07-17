@@ -22,9 +22,11 @@ import {
   adminFetchVocabBanks,
   adminUpsertVocabBank,
   adminDeleteVocabBank,
-  adminUploadAvatarAction
+  adminUploadAvatarAction,
+  adminUpdatePersistentMood
 } from '@/app/actions/admin';
-import { Sliders, Plus, Loader2, CheckCircle, AlertCircle, Search, Edit3, Trash2, Check, X } from 'lucide-react';
+import { Sliders, Plus, Loader2, CheckCircle, AlertCircle, Search, Edit3, Trash2, Check, X, ChevronDown } from 'lucide-react';
+
 import UserAvatar from '@/components/UserAvatar';
 
 
@@ -69,11 +71,15 @@ export default function SettingsClient({
   initialMembers,
   initialBotMuted,
   initialLogs = [],
+  initialPersistentMood = 'Normal',
+  initialPersistentTarget = '',
 }: {
   session: SessionData;
   initialMembers: GroupMemberRow[];
   initialBotMuted: boolean;
   initialLogs?: AdminLogItem[];
+  initialPersistentMood?: string;
+  initialPersistentTarget?: string;
 }) {
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('');
@@ -90,6 +96,13 @@ export default function SettingsClient({
   });
   const [pinInput, setPinInput] = useState('');
   const [pinUnlockError, setPinUnlockError] = useState<string | null>(null);
+  const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
+  const [persistentMood, setPersistentMood] = useState<'Normal' | 'Angry' | 'Sad' | 'Horny' | 'Happy' | 'Flirting' | 'Romantic' | 'Arrogant' | 'Sarcastic'>(
+    (initialPersistentMood as any) || 'Normal'
+  );
+  const [persistentTargetUser, setPersistentTargetUser] = useState<string>(
+    initialPersistentTarget || ''
+  );
 
   const [members, setMembers] = useState<GroupMemberRow[]>(initialMembers);
   const [botMuted, setBotMuted] = useState(initialBotMuted);
@@ -648,28 +661,45 @@ export default function SettingsClient({
       {/* God Mode Administration Console */}
       <hr className="border-slate-200 my-4" />
 
-      <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 md:p-8 flex flex-col gap-5 hover:border-slate-300 transition-all duration-200 text-slate-900">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <section className="bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-slate-300 transition-all duration-200 text-slate-900 overflow-hidden">
+        {/* Accordion Header */}
+        <button
+          type="button"
+          onClick={() => setAdminConsoleOpen(!adminConsoleOpen)}
+          className="w-full flex items-center justify-between p-6 md:p-8 text-left cursor-pointer focus:outline-none"
+        >
           <div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 uppercase">
               👑 God Mode Administration
             </h2>
-            <p className="text-slate-500 text-xs">
+            <p className="text-slate-500 text-xs mt-1">
               Emergency room overrides, kiosk credential resets, and AI webhook control.
             </p>
           </div>
-          {unlocked && (
-            <button
-              onClick={() => {
-                sessionStorage.removeItem('god_mode_unlocked');
-                setUnlocked(false);
-              }}
-              className="text-xs font-bold text-god-red hover:text-white bg-god-red/10 hover:bg-god-red border border-god-red/20 px-3 py-1.5 rounded-lg transition cursor-pointer"
-            >
-              Lock Console
-            </button>
-          )}
-        </div>
+          <ChevronDown
+            size={20}
+            className={`text-slate-500 transition-transform duration-200 ${
+              adminConsoleOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+
+        {adminConsoleOpen && (
+          <div className="p-6 md:p-8 pt-0 border-t border-slate-100 flex flex-col gap-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-end gap-4 mt-2">
+              {unlocked && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    sessionStorage.removeItem('god_mode_unlocked');
+                    setUnlocked(false);
+                  }}
+                  className="text-xs font-bold text-god-red hover:text-white bg-god-red/10 hover:bg-god-red border border-god-red/20 px-3 py-1.5 rounded-lg transition cursor-pointer"
+                >
+                  Lock Console
+                </button>
+              )}
+            </div>
 
         {adminStatus && (
           <div
@@ -773,6 +803,89 @@ export default function SettingsClient({
                     <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-god-red"></div>
                   </label>
                 </div>
+              </div>
+
+              {/* 🧠 Persistent AI Mood Controller */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col gap-4 hover:border-slate-300 transition-all duration-200 shadow-sm text-slate-900">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                  🧠 Persistent AI Mood Controller
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Configure a persistent emotional state for @fisky.
+                </p>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setAdminStatus(null);
+                    setIsSubmittingAdmin(true);
+                    const res = await adminUpdatePersistentMood(
+                      session.groupId,
+                      persistentMood,
+                      persistentTargetUser || null
+                    );
+                    setIsSubmittingAdmin(false);
+                    if (res.success) {
+                      setAdminStatus({ success: true, message: 'Persistent AI mood updated successfully!' });
+                    } else {
+                      setAdminStatus({ success: false, message: res.error || 'Failed to update persistent mood.' });
+                    }
+                  }}
+                  className="flex flex-col gap-4"
+                >
+                  {/* Row 1: Mood Selector */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Select Bot Mood
+                    </label>
+                    <div className="flex gap-1.5 overflow-x-auto pb-1.5 scrollbar-thin">
+                      {['Normal', 'Angry', 'Sad', 'Horny', 'Happy', 'Flirting', 'Romantic', 'Arrogant', 'Sarcastic'].map((m) => {
+                        const isActive = persistentMood === m;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setPersistentMood(m as any)}
+                            className={`px-3 py-2 text-xs rounded-xl border font-bold transition-all duration-200 cursor-pointer flex-shrink-0 ${
+                              isActive
+                                ? 'bg-[#CEFF00] text-black border-[#CEFF00]'
+                                : 'bg-slate-50 text-slate-600 border border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Row 2: Target Member */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Target Member (Context-Driven)
+                    </label>
+                    <select
+                      value={persistentTargetUser}
+                      onChange={(e) => setPersistentTargetUser(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#CEFF00] focus:border-[#CEFF00] appearance-none"
+                    >
+                      <option value="" className="bg-white text-slate-900">All Members (Global)</option>
+                      {members.filter(m => m.profiles?.is_active !== false).map((m) => (
+                        <option key={m.user_id} value={m.profiles?.id} className="bg-white text-slate-900">
+                          {m.profiles?.nickname || m.profiles?.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAdmin}
+                    className="w-full bg-[#CEFF00] hover:bg-[#CEFF00]/90 text-black text-xs font-bold py-2.5 rounded-xl transition cursor-pointer disabled:opacity-40"
+                  >
+                    Save Persistent Mood State
+                  </button>
+                </form>
               </div>
 
               {/* Kiosk Credentials Reset Tool */}
@@ -1729,6 +1842,8 @@ export default function SettingsClient({
 
           </div>
         )}
+        </div>
+      )}
       </section>
     </div>
   );

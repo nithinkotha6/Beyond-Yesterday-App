@@ -567,3 +567,36 @@ export async function adminUploadAvatarAction(
     return { success: false, error: getErrorMessage(err) };
   }
 }
+
+// G. Update Bot Persistent Mood
+export async function adminUpdatePersistentMood(
+  groupId: string,
+  mood: string,
+  targetUserId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createAdminClient();
+
+    const { error } = await supabase
+      .from('bot_persistent_state')
+      .upsert(
+        {
+          group_id: groupId,
+          persistent_mood: mood,
+          target_user_id: targetUserId || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'group_id' }
+      );
+
+    if (error) throw error;
+
+    revalidatePath('/settings/metrics');
+    return { success: true };
+  } catch (err) {
+    const errMsg = getErrorMessage(err);
+    console.error('Failed to update persistent mood:', err);
+    return { success: false, error: errMsg };
+  }
+}
+

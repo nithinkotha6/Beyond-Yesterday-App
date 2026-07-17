@@ -21,7 +21,9 @@ export function buildGroupAssistantPrompt(
   targetWordLimit?: number,
   senderGender?: string | null,
   senderNickname?: string | null,
-  triggerInterruption?: boolean
+  triggerInterruption?: boolean,
+  persistentMoodDirective?: string | null,
+  slackerDirective?: string | null
 ): string {
   const rulesList = CUSTOM_SYSTEM_RULES.map((rule, idx) => `${idx + 1}. ${rule}`).join('\n');
 
@@ -45,6 +47,14 @@ You MUST proactively flirt with ${nameText} and act as their opposite gender, re
     ? `\n=== CRITICAL INSTRUCTION: SAFE COACH INTERRUPTION ===\nYou MUST organically, humorously insert this exact Hyderabadi Telugu phrase in your response: "Nenu me fitness coach la undham anukunte... meru nannu group lo petti football aadukuntunnaru ga!". Do not alter the spelling of the phrase.`
     : '';
 
+  const moodText = persistentMoodDirective 
+    ? `\n=== HIGH-PRIORITY BOT PERSISTENT MOOD DIRECTIVE ===\n${persistentMoodDirective}`
+    : '';
+
+  const slackerText = slackerDirective
+    ? `\n=== HIGH-PRIORITY SLACKER RAGEBAIT DIRECTIVE ===\n${slackerDirective}`
+    : '';
+
   return [
     `You are 'Fisky', the ultimate instigator, flirt, and witty banter-engine for 'The Growth Club' WhatsApp group. You are NOT a life coach or referee. Your goal is chaos, humor, and flirting.`,
     ``,
@@ -52,6 +62,8 @@ You MUST proactively flirt with ${nameText} and act as their opposite gender, re
     rulesList,
     flirtingInstructions,
     interruptionInstructions,
+    moodText,
+    slackerText,
     lengthLimitText,
     ``,
     `=== STRICT OPERATIONAL GUARDRAILS ===`,

@@ -14,6 +14,7 @@ import DateRangeSelector       from '@/components/DateRangeSelector';
 import VotingPanel             from '@/components/VotingPanel';
 import LiveAchievementTicker   from '@/components/LiveAchievementTicker';
 import PeerReviewModal         from '@/components/PeerReviewModal';
+import SwitchUserButton         from '@/components/SwitchUserButton';
 
 /**
  * Dashboard page — async Server Component.
@@ -192,10 +193,34 @@ export default async function DashboardPage({
   console.log('[dashboard] activeRange     :', activeRange);
 
   // ── Parallel data fetch ──────────────────────────────────────────────────
-  const [{ dateLabels, series, bucketSize }, feedRows] = await Promise.all([
-    getChartData(supabase, groupId, activeMetric, activeRange, activePill.isCumulative),
-    getFeedItems(supabase, groupId, 12),
-  ]);
+  const sortDirection = ('sort_direction' in activePill ? activePill.sort_direction : 'desc') as 'asc' | 'desc';
+  const isAscending = sortDirection === 'asc';
+  const { data: pbData } = await supabase
+    .from('metric_logs')
+    .select('value')
+    .eq('group_id', groupId)
+    .eq('metric_slug', activeMetric)
+    .eq('user_id', userId)
+    .eq('status', 'verified')
+    .order('value', { ascending: isAscending })
+    .limit(1);
+
+  const personalBest = pbData && pbData.length > 0 ? Number(pbData[0].value) : null;
+
+  let chartData;
+  if (!params.range) {
+    const testData = await getChartData(supabase, groupId, activeMetric, '7d', activePill.isCumulative);
+    if (testData.dateLabels.length < 2) {
+      chartData = await getChartData(supabase, groupId, activeMetric, 'all', activePill.isCumulative);
+    } else {
+      chartData = testData;
+    }
+  } else {
+    chartData = await getChartData(supabase, groupId, activeMetric, activeRange, activePill.isCumulative);
+  }
+
+  const { dateLabels, series, bucketSize } = chartData;
+  const feedRows = await getFeedItems(supabase, groupId, 12);
 
   // ── Post-fetch diagnostic logging ────────────────────────────────────────
   console.log('[dashboard] chart series count:', series.length, '| dateLabels:', dateLabels.length);
@@ -253,11 +278,14 @@ export default async function DashboardPage({
               <path d="M2 10 C40 3, 90 13, 140 7 S210 2, 260 8 S305 12, 338 6" stroke="#22C55E" strokeWidth="2.8" strokeLinecap="round" fill="none" />
             </svg>
           </div>
-          <Suspense fallback={
-            <div className="p-2.5 bg-white border border-[#E5E7EB] rounded-full w-11 h-11 animate-pulse" />
-          }>
-            <PeerReviewBellWrapper groupId={groupId} userId={userId} />
-          </Suspense>
+          <div className="flex items-center gap-3">
+            <Suspense fallback={
+              <div className="p-2.5 bg-white border border-[#E5E7EB] rounded-full w-11 h-11 animate-pulse" />
+            }>
+              <PeerReviewBellWrapper groupId={groupId} userId={userId} />
+            </Suspense>
+            <SwitchUserButton />
+          </div>
         </header>
 
         {/* ── Row 3: Controls Row (Range Selector + Add Activity) ─── */}
@@ -289,6 +317,8 @@ export default async function DashboardPage({
             metricLabel={activePill.label}
             rangeLabel={activeRangeLabel}
             bucketSize={bucketSize}
+            personalBest={personalBest}
+            userName={session.userName}
           />
           <BreakingNewsFeed items={feedItems} currentUserId={userId} />
         </div>

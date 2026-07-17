@@ -14,6 +14,8 @@ interface MetricChartProps {
   metricLabel:  string;     // e.g. "Long Run" — used in empty state
   rangeLabel:   string;     // e.g. "Last 7 Days" — used in empty state
   bucketSize?:  1 | 3 | 7; // 1=daily, 3=3-day buckets, 7=weekly
+  personalBest?: number | null;
+  userName?:     string;
 }
 
 /**
@@ -92,6 +94,8 @@ function MetricChart({
   metricLabel,
   rangeLabel,
   bucketSize = 1,
+  personalBest = null,
+  userName = 'Athlete',
 }: MetricChartProps) {
   const [isolatedUserId, setIsolatedUserId] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -163,7 +167,13 @@ function MetricChart({
     : null;
 
   const option = {
-    grid: { left: 48, right: 48, top: 24, bottom: 32, containLabel: false },
+    grid: { 
+      left: 48, 
+      right: 48, 
+      top: 24, 
+      bottom: dateLabels.length > 10 ? 48 : 32, 
+      containLabel: false 
+    },
     xAxis: {
       type: 'category',
       data: dateLabels,
@@ -275,6 +285,29 @@ function MetricChart({
         };
       }),
     })),
+    dataZoom: dateLabels.length > 10 ? [
+      {
+        type: 'inside',
+        start: Math.max(0, 100 - (10 / dateLabels.length) * 100),
+        end: 100,
+        zoomOnMouseWheel: false,
+        moveOnMouseMove: true,
+        preventDefaultMouseMove: false,
+      },
+      {
+        type: 'slider',
+        show: true,
+        height: 12,
+        bottom: 4,
+        borderColor: 'transparent',
+        backgroundColor: '#F3F4F6',
+        fillerColor: '#E5E7EB',
+        handleSize: 0,
+        showDetail: false,
+        start: Math.max(0, 100 - (10 / dateLabels.length) * 100),
+        end: 100,
+      }
+    ] : undefined,
   };
 
   return (
@@ -294,6 +327,15 @@ function MetricChart({
             </span>
           )}
         </div>
+
+        {personalBest !== null && (
+          <div className="mb-4 p-3 bg-[#CEFF00]/10 border border-[#CEFF00]/30 rounded-xl flex items-center gap-2 text-xs font-bold text-slate-800 animate-in fade-in slide-in-from-top-1 duration-200">
+            <span>🏆</span>
+            <span>
+              {userName}&apos;s All-Time Best: <span className="text-slate-900 font-black">{personalBest.toLocaleString()} {unit}</span>
+            </span>
+          </div>
+        )}
 
         {/* Large Typography display for isolated athlete */}
         {isolatedAthlete && isolatedLatestValue !== null && (

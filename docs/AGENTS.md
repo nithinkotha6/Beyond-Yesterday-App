@@ -115,11 +115,76 @@ graph TD
     class CheckMute,VerifyInst,VerifyChat,CheckCmd,ResolveGender,Interruption decision;
     class FetchProfile,FetchContext,LogConv database;
     class CallGemini,SendMsg api;
+`````
+
+---
+
+## 3. Real-World Message Processing Trace (Concrete Example)
+
+The following flowchart traces a real user message end-to-end to illustrate how filters, database profile lookups, the flirting matrix, and prompt assembly work in practice.
+
+```mermaid
+%%{init: { 'theme': 'base', 'themeVariables': { 'primaryColor': '#F8FAFC', 'primaryTextColor': '#1b2b50ff', 'edgeLabelBackground': '#FFFFFF', 'lineColor': '#64748B' }}}%%
+graph TD
+    classDef step fill:#E0F2FE,stroke:#0284C7,stroke-width:1.5px,color:#0F172A;
+    classDef payload fill:#FFF1F2,stroke:#F43F5E,stroke-width:1.5px,color:#0F172A;
+    classDef db fill:#FEF3C7,stroke:#D97706,stroke-width:1.5px,color:#0F172A;
+    classDef decision fill:#F3E8FF,stroke:#7C3AED,stroke-width:1.5px,color:#0F172A;
+    classDef prompt fill:#ECFDF5,stroke:#059669,stroke-width:1.5px,color:#0F172A;
+    classDef details fill:#F8FAFC,stroke:#64748B,stroke-width:1.5px,color:#0F172A;
+
+    InputMsg["📱 Inbound Webhook Payload Details:<br/>• typeWebhook: 'incomingMessageReceived'<br/>• idMessage: 'XYZ1234567890ABCDEF'<br/>• senderData.sender: '919995551234@c.us'<br/>• senderData.chatId: '12036304381920@g.us'<br/>• messageData.extendedTextMessageData.text:<br/>  'Orey, where should I come for the run today?'"] --> CheckMute{"Filter 1: Mute check"}
+    
+    CheckMute --> F1Details["🔍 Filter 1 Logic & DB Queries:<br/>• Query table: 'system_settings' where key = 'bot_muted'<br/>• Check value: If value == 'true' -> returns status 'muted'<br/>• Output: Returns 200 OK immediately to halt GreenAPI retries"]
+    
+    CheckMute -- "False" --> CheckInst{"Filter 2: Instance ID validation"}
+    CheckInst --> F2Details["🔍 Filter 2 Logic & Integrity Check:<br/>• Compares body.instanceData.idInstance to process.env.GREEN_API_INSTANCE_ID<br/>• Method: Uses secure constant-time safeCompare checks<br/>• Output: If mismatch -> Returns status 200 'Unauthorized instance'"]
+    
+    CheckInst -- "Valid" --> CheckChat{"Filter 3: Group & Message Type check"}
+    CheckChat --> F3Details["🔍 Filter 3 Scope & Structure Check:<br/>• Checks if body.senderData.chatId matches target process.env.WHATSAPP_GROUP_ID<br/>• Checks if body.typeWebhook is strictly 'incomingMessageReceived'<br/>• Checks if body.messageData.typeMessage is 'textMessage' or 'extendedTextMessage'<br/>• Output: If mismatch -> Returns status 200 and ignores payload"]
+    
+    CheckChat -- "Valid" --> CleanMsg["4. Message Cleaning & Command Processing:<br/>• Parses incoming text defensively from available structure properties<br/>• Checks if message equals command '/clear' -> Wipes DB chat_history, sends WA confirmation, exits<br/>• Result Text: 'Orey, where should I come for the run today?'"]
+    
+    CleanMsg --> DbLookup[("5. User Profile DB Query:<br/>Query profiles table in Supabase<br/>where phone_number = '919995551234'")]
+    DbLookup --> DbResult["Profile Data Resolved:<br/>• nickname: 'Nithin'<br/>• full_name: 'Nithin Reddy'<br/>• gender: 'MALE'"]
+    
+    DbResult --> GenderCheck{"6. Flirting Persona Selector"}
+    
+    GenderCheck -- "Sender is MALE" --> SetFemale["Adopt Telugu Female Persona:<br/>• Exaggerated, dramatic heroine persona<br/>• Flirt aggressively with cheesy/cute Telugu/English pickup lines<br/>• Show extreme/possessive teasing dynamics"]
+    GenderCheck -- "Sender is FEMALE" --> SetSigma["Adopt Sigma Male Persona:<br/>• Nonchalant, smooth, slightly arrogant persona<br/>• Flirt with sharp, witty pickup lines<br/>• Play hard to get"]
+    
+    SetFemale --> QueryBlock["7. Context Data Loading Step"]
+    SetSigma --> QueryBlock
+    
+    subgraph DataAndPrompt["Context Assembly & Prompt Generation"]
+        direction LR
+        DbContext[("DB Context Queries:<br/>• Chat History: Retreives last 3 rows from chat_history table<br/>• Recent Activities: Retreives last 5 verified metric_logs logs<br/>• Leaderboard: Queries top_golf scores sorted descending")]
+        
+        SystemPromptText["Generated System Prompt Template:<br/>• Custom Rules: Urban Romanized Telugu, natural tags/comedy dialogues<br/>• DRAMA & CLASH: Pit members against each other<br/>• QUESTION ANSWERING PRIORITY: Answer location/time directly (No evading)<br/>• ANTI-REPETITION: Do NOT start replies with '[Name] darling' or loop 'darling'<br/>• Dynamic Flirting Prompt Override: Act as dramatic Telugu heroine"]
+    end
+    
+    QueryBlock --> DbContext
+    DbContext --> SystemPromptText
+    
+    SystemPromptText --> RunGemini[["8. Gemini LLM Generation:<br/>• Calls executeWithKeyRotation pool<br/>• Passes: System Prompt instructions, Chat History array, and User message<br/>• Word Limit: Max 15 or 3x incoming word count"]]
+    
+    RunGemini --> GeminiOutput["Gemini Output Text:<br/>'Inka ekkadiki vasthav, Jubilee Hills main road daggarki vachey.<br/>Kaushik gadu already reach aipoyadu. Fast ga ra!'"]
+    
+    GeminiOutput --> QuotedReply[["9. Outbound Message Dispatch via GreenAPI:<br/>• Method: POST /sendMessage/WA_TOKEN<br/>• Payload properties: chatId: WHATSAPP_GROUP_ID,<br/>  message: Gemini output text,<br/>  quotedMessageId: 'XYZ1234567890ABCDEF'"]]
+    
+    QuotedReply --> SaveHistory[("10. Commit Logs to Database:<br/>Inserts two records in public.chat_history:<br/>1. role: 'user', content: 'Message from Nithin: Orey, where should I come...'<br/>2. role: 'assistant', content: 'Inka ekkadiki vasthav...'")]
+    
+    class InputMsg,CleanMsg,GeminiOutput payload;
+    class DbLookup,DbContext,SaveHistory db;
+    class CheckMute,CheckInst,CheckChat,GenderCheck decision;
+    class SetFemale,SetSigma,SystemPromptText prompt;
+    class RunGemini,QuotedReply,QueryBlock step;
+    class F1Details,F2Details,F3Details,DbResult details;
 ```
 
 ---
 
-## 3. Inbound Webhook Ingestion
+## 4. Inbound Webhook Ingestion
 
 GreenAPI forwards incoming messages to our webhook endpoint at `/api/webhooks/whatsapp`.
 
@@ -158,7 +223,7 @@ A typical webhook payload for `incomingMessageReceived` looks as follows:
 
 ---
 
-## 4. Context Processing & Profile Mapping
+## 5. Context Processing & Profile Mapping
 
 Once verified, the webhook triggers an asynchronous worker execution using Next.js `after(...)` block to keep client response times fast.
 
@@ -180,7 +245,7 @@ To prevent token bloat, session drift, and hallucinations, the chat history cont
 
 ---
 
-## 5. Prompt Engineering & Conditional Flirting
+## 6. Prompt Engineering & Conditional Flirting
 
 The system prompt is dynamically assembled on the server. The target sender's gender is passed into `buildGroupAssistantPrompt` to determine the flirting vibe.
 
@@ -201,7 +266,7 @@ The system prompt is dynamically assembled on the server. The target sender's ge
 
 ---
 
-## 6. Outbound Communication Invocations
+## 7. Outbound Communication Invocations
 
 When the LLM response is returned, the webhook calls the GreenAPI outbound messenger:
 
@@ -222,7 +287,7 @@ The API endpoint `/sendMessage/` is invoked. By passing the inbound payload's `i
 
 ---
 
-## 7. Parameters & Safety Configurations
+## 8. Parameters & Safety Configurations
 
 * **LLM Model:** Google Gemini models (managed under `GeminiPool` key rotation).
 * **Timeout Limits:** `maxDuration = 60` seconds.

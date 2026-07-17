@@ -125,18 +125,19 @@ export default function Sidebar({ userName, groupName, totalXp, currentLevel }: 
         </div>
       </div>
 
-      {/* ── Switch Group (Logout) ────────────────────────────────── */}
-      <form action={logoutAction} onSubmit={() => { localStorage.removeItem('kiosk_session'); }}>
-        <button
-          id="switch-group-btn"
-          type="submit"
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors group cursor-pointer"
-          aria-label="Switch group and clear session"
-        >
-          <LogOut size={16} strokeWidth={2} className="group-hover:translate-x-[-2px] transition-transform" />
-          Switch Group
-        </button>
-      </form>
+      {/* ── Switch User (Logout) ────────────────────────────────── */}
+      <button
+        id="switch-user-sidebar-btn"
+        onClick={() => {
+          localStorage.removeItem('kiosk_session');
+          logoutAction();
+        }}
+        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors group cursor-pointer"
+        aria-label="Switch user and clear session"
+      >
+        <span className="group-hover:rotate-180 transition-transform duration-300">🔄</span>
+        Switch User
+      </button>
 
       {/* ── Promotional Poster ───────────────────────────────────── */}
       <div
