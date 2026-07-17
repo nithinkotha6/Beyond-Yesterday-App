@@ -131,7 +131,8 @@ export async function POST(req: Request) {
 
     const rawSender = body.senderData?.sender || '';
     const senderName = body.senderData?.senderName || 'A group member';
-    console.log(`[webhook/whatsapp] Triggered by message: "${incomingMessage}" from JID: ${rawSender} (${senderName})`);
+    const messageId = body.idMessage || '';
+    console.log(`[webhook/whatsapp] Triggered by message: "${incomingMessage}" from JID: ${rawSender} (${senderName}), messageId: ${messageId}`);
 
     // ── 3. Asynchronous Background Execution (waitUntil / after) ────────────
     after(async () => {
@@ -157,6 +158,25 @@ export async function POST(req: Request) {
 
         const groupId = targetGroup.id;
 
+        // Fetch sender's profile for nickname and gender to support flirting logic
+        let senderNickname: string | null = null;
+        let senderGender: string | null = null;
+
+        if (rawSender) {
+          const cleanPhone = rawSender.split('@')[0];
+          const { data: profileData } = await supabaseAdmin
+            .from('profiles')
+            .select('nickname, gender')
+            .or(`phone_number.eq.+${cleanPhone},phone_number.eq.${cleanPhone},phone_number.like.%${cleanPhone}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (profileData) {
+            senderNickname = profileData.nickname;
+            senderGender = profileData.gender;
+          }
+        }
+
         // Task 2.2: Conversational Memory Optimization (The Token Clamp)
         let formattedHistory: { role: 'user' | 'assistant'; content: string }[] = [];
         try {
@@ -165,7 +185,7 @@ export async function POST(req: Request) {
             .select('role, content, created_at')
             .eq('group_id', groupId)
             .order('created_at', { ascending: false })
-            .limit(10); // Limit to retrieve check scope
+            .limit(3); // Strictly retrieve only the last 3 messages of context
 
           if (!dbHistError && dbHistory && dbHistory.length > 0) {
             const lastMsgTime = new Date(dbHistory[0].created_at).getTime();
@@ -173,10 +193,9 @@ export async function POST(req: Request) {
               console.log('[webhook/whatsapp] Session inactivity: clearing old conversation memory context');
               formattedHistory = [];
             } else {
-              // Chronological order, strictly last 8 messages
+              // Chronological order
               const chronoHistory = dbHistory.slice().reverse();
-              const slicedHistory = chronoHistory.slice(-4);
-              formattedHistory = slicedHistory.map((h) => ({
+              formattedHistory = chronoHistory.map((h) => ({
                 role: h.role as 'user' | 'assistant',
                 content: h.content,
               }));
@@ -305,22 +324,31 @@ export async function POST(req: Request) {
           { role: 'user' as const, content: promptText }
         ];
 
+        // 20% chance to organically trigger fitness coach interruption phrase
+        const triggerInterruption = Math.random() < 0.20;
+
         try {
           const result = await executeWithKeyRotation(async (modelInstance) => {
             return generateText({
               model: modelInstance,
-              system: buildGroupAssistantPrompt(dbContext, targetWordLimit),
+              system: buildGroupAssistantPrompt(
+                dbContext,
+                targetWordLimit,
+                senderGender,
+                senderNickname || senderName,
+                triggerInterruption
+              ),
               messages: finalMessages,
             });
           });
           text = result.text;
         } catch (llmError) {
           console.error("AI execution failed or keys exhausted. Silently dropping reply to prevent spam.", llmError);
-          return NextResponse.json({ status: "rate_limited_silenced" }, { status: 200 });
+          return;
         }
 
-        // Send LLM response back to the group
-        await sendWhatsAppGroupMessage(text);
+        // Send LLM response back to the group quoting the trigger message JID
+        await sendWhatsAppGroupMessage(text, messageId);
         console.log('[webhook/whatsapp] Background processing completed successfully.');
 
         // F. Save messages to database chat_history

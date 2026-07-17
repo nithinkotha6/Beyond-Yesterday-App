@@ -3,7 +3,10 @@
  * Sends a WhatsApp message to the configured group chat.
  * Spec: CLAUDE.md & prompt description (Pillar 1)
  */
-export async function sendWhatsAppGroupMessage(message: string): Promise<boolean> {
+export async function sendWhatsAppGroupMessage(
+  message: string,
+  quotedMessageId?: string
+): Promise<boolean> {
   const instanceId = process.env.GREEN_API_INSTANCE_ID;
   const token = process.env.GREEN_API_TOKEN;
   const chatId = process.env.WHATSAPP_GROUP_ID;
@@ -30,6 +33,7 @@ export async function sendWhatsAppGroupMessage(message: string): Promise<boolean
     body: JSON.stringify({
       chatId,
       message,
+      ...(quotedMessageId ? { quotedMessageId } : {}),
     }),
   });
 

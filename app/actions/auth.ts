@@ -12,13 +12,15 @@ const SignUpSchema = z.object({
     .trim()
     .min(1, "First name is required")
     .refine(val => !val.includes(" "), { message: "First name cannot contain spaces" }),
-  nickname: z.string().trim().optional(),
-  email: z.string().trim().email('Invalid email address').or(z.literal('')),
+  nickname: z.string().trim().min(1, 'Nickname is required'),
+  email: z.string().trim().email('Invalid email address'),
   pin: z.string().trim().length(4, 'PIN must be exactly 4 digits'),
   gender: z.enum(['Male', 'Female']),
+  phoneNumber: z.string().trim().min(1, 'Phone number is required'),
 });
 import {
   encodeSession,
+  decodeSession,
   SESSION_COOKIE,
   COOKIE_OPTIONS,
 } from '@/lib/session';
@@ -81,7 +83,7 @@ export async function getGroupsAction(): Promise<GetGroupsResult> {
 /* ── loginWithPersonalPinAction ───────────────────────────────────────────── */
 
 export type LoginResult =
-  | { success: true; userName: string; userId: string; groupId: string; groupName: string; avatarUrl?: string | null }
+  | { success: true; userName: string; userId: string; groupId: string; groupName: string; avatarUrl?: string | null; token?: string }
   | { success: false; error: string };
 
 /**
@@ -189,6 +191,7 @@ export async function loginWithPersonalPinAction(
       groupId:   match.group_id,
       groupName: group.name,
       avatarUrl: profile.avatar_url,
+      token,
     };
   } catch (err) {
     console.error("LOGIN CRASH:", err);
@@ -200,7 +203,7 @@ export async function loginWithPersonalPinAction(
 /* ── signUpAction ─────────────────────────────────────────────────────────── */
 
 export type SignUpResult =
-  | { success: true; userName: string; userId: string; groupId: string; groupName: string; avatarUrl?: string | null }
+  | { success: true; userName: string; userId: string; groupId: string; groupName: string; avatarUrl?: string | null; token?: string }
   | { success: false; error: string };
 
 /**
@@ -214,6 +217,7 @@ export async function signUpAction(
   email: string,
   pin: string,
   gender: string,
+  phoneNumber: string,
 ): Promise<SignUpResult> {
   const validation = SignUpSchema.safeParse({
     inviteCode,
@@ -222,6 +226,7 @@ export async function signUpAction(
     email,
     pin,
     gender,
+    phoneNumber,
   });
 
   if (!validation.success) {
@@ -245,28 +250,32 @@ export async function signUpAction(
       return { success: false, error: 'Invalid Group Code' };
     }
 
-    // 2. Prevent duplicate accounts by composite Name + (Nickname OR Email)
+    // 2. Prevent duplicate accounts by email or phone number
     const cleanFirstName = sanitizedName.trim();
     const cleanNickname = nickname.trim().toLowerCase();
     const cleanEmail = email.trim().toLowerCase();
 
-    let orCondition = 'id.eq.00000000-0000-0000-0000-000000000000'; // Default false condition
-    const conditions: string[] = [];
-    if (cleanNickname) {
-      conditions.push(`nickname.ilike.${cleanNickname}`);
-    }
-    if (cleanEmail) {
-      conditions.push(`email.ilike.${cleanEmail}`);
-    }
-    if (conditions.length > 0) {
-      orCondition = conditions.join(',');
+    const { data: duplicateUser, error: checkError } = await supabase
+      .from('profiles')
+      .select('id, email, phone_number')
+      .or(`email.eq.${cleanEmail},phone_number.eq.${phoneNumber.trim()}`)
+      .maybeSingle();
+
+    if (duplicateUser) {
+      if (duplicateUser.email === cleanEmail) {
+        return { success: false, error: "An account with this email already exists." };
+      }
+      if (duplicateUser.phone_number === phoneNumber.trim()) {
+        return { success: false, error: "An account with this phone number already exists." };
+      }
     }
 
+    // Prevent duplicate accounts by composite Name + Nickname
     const { data: existingUser, error: queryError } = await supabase
       .from('profiles')
-      .select('id, full_name, nickname, email')
+      .select('id, full_name, nickname')
       .eq('full_name', cleanFirstName)
-      .or(orCondition)
+      .eq('nickname', nickname.trim())
       .maybeSingle();
 
     if (queryError) {
@@ -277,7 +286,7 @@ export async function signUpAction(
     if (existingUser) {
       return { 
         success: false,
-        error: "An account with this Name, Nickname, and Email combination already exists. Please log in with your 4-digit PIN instead." 
+        error: "An account with this Name and Nickname combination already exists. Please log in with your 4-digit PIN instead." 
       };
     }
 
@@ -286,54 +295,28 @@ export async function signUpAction(
     const cleanPin = sanitizedPin;
     const activeGroupId = group.id;
 
-    let newProfile: any = null;
-    let profileError: any = null;
-
-    const { data: directProfile, error: directError } = await supabase
+    const { data: newProfile, error: profileError } = await supabase
       .from('profiles')
       .insert({
         full_name: cleanFirstName,
-        nickname: nickname.trim() || null,
-        email: email.trim() || null,
+        nickname: nickname.trim(),
+        email: email.trim(),
         gender: validGender,
         pin: cleanPin,
         group_id: activeGroupId,
         role: 'member',
         avatar_url: null,
+        phone_number: phoneNumber.trim(),
       })
       .select('id, full_name, nickname, avatar_url')
       .single();
 
-    if (directError && directError.message.toLowerCase().includes('gender')) {
-      console.warn('[signup] Target database is missing the profiles.gender column. Falling back to insert without gender.');
-      const { data: fallbackProfile, error: fallbackError } = await supabase
-        .from('profiles')
-        .insert({
-          full_name: cleanFirstName,
-          nickname: nickname.trim() || null,
-          email: email.trim() || null,
-          pin: cleanPin,
-          group_id: activeGroupId,
-          role: 'member',
-          avatar_url: null,
-        })
-        .select('id, full_name, nickname, avatar_url')
-        .single();
-      newProfile = fallbackProfile;
-      profileError = fallbackError;
-    } else {
-      newProfile = directProfile;
-      profileError = directError;
-    }
-
     if (profileError || !newProfile) {
       if (profileError) {
         console.error("SIGNUP CRASH:", profileError.message, profileError.details, profileError.code);
-        if (profileError.message.toLowerCase().includes('schema cache')) {
-          console.error("CRITICAL: Run 'NOTIFY pgrst, reload schema;' in Supabase SQL editor.");
-        }
+        return { success: false, error: `Failed to create user profile: ${profileError.message}` };
       }
-      return { success: false, error: 'Failed to create user profile. The PIN/email may already be registered.' };
+      return { success: false, error: 'Failed to create user profile.' };
     }
 
     // 4. Link them in the group_members table
@@ -370,11 +353,33 @@ export async function signUpAction(
       groupId: group.id,
       groupName: group.name,
       avatarUrl: newProfile.avatar_url,
+      token,
     };
   } catch (err) {
     console.error("FINAL SIGNUP CRASH:", err);
     const msg = err instanceof Error ? err.message : 'An unexpected error occurred during signup.';
     return { success: false, error: msg };
+  }
+}
+
+/* ── restoreSessionAction ────────────────────────────────────────────────── */
+
+/**
+ * Restores a session from local storage by verifying the cached JWT token
+ * and resetting the httpOnly cookie.
+ */
+export async function restoreSessionAction(token: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const session = await decodeSession(token);
+    if (!session) {
+      return { success: false, error: 'Invalid or expired session' };
+    }
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
+    return { success: true };
+  } catch (err) {
+    console.error('[restoreSessionAction] error:', err);
+    return { success: false, error: 'Failed to restore session' };
   }
 }
 

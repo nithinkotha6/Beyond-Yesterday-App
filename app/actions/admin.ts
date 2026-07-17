@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
 import { generateText } from 'ai';
 import { executeWithKeyRotation } from '@/utils/geminiPool';
 import { getSlangFor } from '@/utils/slangRouter';
@@ -296,6 +297,7 @@ export async function adminEditLog(logId: string, newValue: number, groupId?: st
       .eq('id', logId);
 
     if (error) throw error;
+    revalidatePath('/', 'layout');
     return { success: true };
   } catch (err) {
     console.error('[adminEditLog] Error editing log:', err);
@@ -312,6 +314,7 @@ export async function adminVerifyLog(logId: string, groupId?: string) {
       .eq('id', logId);
 
     if (error) throw error;
+    revalidatePath('/', 'layout');
     return { success: true };
   } catch (err) {
     console.error('[adminVerifyLog] Error verifying log:', err);
@@ -328,6 +331,7 @@ export async function adminDeleteLog(logId: string, groupId?: string) {
       .eq('id', logId);
 
     if (error) throw error;
+    revalidatePath('/', 'layout');
     return { success: true };
   } catch (err) {
     console.error('[adminDeleteLog] Error deleting log:', err);

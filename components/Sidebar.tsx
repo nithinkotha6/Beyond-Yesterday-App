@@ -126,7 +126,7 @@ export default function Sidebar({ userName, groupName, totalXp, currentLevel }: 
       </div>
 
       {/* ── Switch Group (Logout) ────────────────────────────────── */}
-      <form action={logoutAction}>
+      <form action={logoutAction} onSubmit={() => { localStorage.removeItem('kiosk_session'); }}>
         <button
           id="switch-group-btn"
           type="submit"

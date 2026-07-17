@@ -15,6 +15,7 @@ import {
   loginWithPersonalPinAction,
   signUpAction,
   getTopActiveMembersAction,
+  restoreSessionAction,
   type Group,
   type GroupProfile,
 } from '@/app/actions/auth';
@@ -53,6 +54,7 @@ export default function LandingPage() {
   const [signUpEmail, setSignUpEmail]   = useState('');
   const [signUpPin, setSignUpPin]       = useState('');
   const [signUpGender, setSignUpGender] = useState('Male');
+  const [signUpPhoneNumber, setSignUpPhoneNumber] = useState('');
   const [signUpError, setSignUpError]   = useState<string | null>(null);
   const [hasPlayedNameAudio, setHasPlayedNameAudio] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +69,27 @@ export default function LandingPage() {
 
     // Eagerly preload all audio assets to resolve latency issues
     preloadAllSounds();
+
+    // Check if user session token exists in local storage for auto-login
+    const cachedToken = localStorage.getItem('kiosk_session');
+    if (cachedToken) {
+      setLoading(true);
+      restoreSessionAction(cachedToken).then((res) => {
+        if (cancelled) return;
+        if (res.success) {
+          router.push('/dashboard');
+        } else {
+          localStorage.removeItem('kiosk_session');
+          loadGroups();
+        }
+      }).catch((err) => {
+        console.error('Session auto-restore error:', err);
+        if (!cancelled) loadGroups();
+      });
+      return () => { cancelled = true; };
+    } else {
+      loadGroups();
+    }
 
     async function loadGroups() {
       try {
@@ -92,9 +115,8 @@ export default function LandingPage() {
       }
     }
 
-    loadGroups();
     return () => { cancelled = true; };
-  }, []);
+  }, [router]);
 
   // Fetch top 5 active members when a group is selected to render the collage
   useEffect(() => {
@@ -122,6 +144,9 @@ export default function LandingPage() {
         const result = await loginWithPersonalPinAction(groupId, pin);
         if (result.success) {
           playAudio('login.mp3');
+          if (result.token) {
+            localStorage.setItem('kiosk_session', result.token);
+          }
           setLoggedInUser({ name: result.userName, avatarUrl: result.avatarUrl });
           setTimeout(() => {
             router.push('/dashboard');
@@ -179,11 +204,15 @@ export default function LandingPage() {
           signUpNickname,
           signUpEmail,
           signUpPin,
-          signUpGender
+          signUpGender,
+          signUpPhoneNumber
         );
 
         if (result.success) {
           playAudio('thanks-a-lot.mp3');
+          if (result.token) {
+            localStorage.setItem('kiosk_session', result.token);
+          }
           setLoggedInUser({ name: result.userName, avatarUrl: result.avatarUrl });
           setTimeout(() => {
             router.push('/dashboard');
@@ -474,10 +503,11 @@ export default function LandingPage() {
                 {/* Nickname */}
                 <div>
                   <label className="block text-[11px] font-bold tracking-wider text-[#6B7280] uppercase mb-1.5">
-                    Nickname (Optional)
+                    Nickname
                   </label>
                   <input
                     type="text"
+                    required
                     value={signUpNickname}
                     onChange={e => { setSignUpNickname(e.target.value); setSignUpError(null); }}
                     placeholder="Display name on charts"
@@ -489,13 +519,30 @@ export default function LandingPage() {
                 {/* Email */}
                 <div>
                    <label className="block text-[11px] font-bold tracking-wider text-[#6B7280] uppercase mb-1.5">
-                    Email (Optional)
+                    Email
                   </label>
                   <input
                     type="email"
+                    required
                     value={signUpEmail}
                     onChange={e => { setSignUpEmail(e.target.value); setSignUpError(null); }}
                     placeholder="your@email.com"
+                    disabled={isPending}
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
+                  />
+                </div>
+
+                {/* Phone Number */}
+                <div>
+                   <label className="block text-[11px] font-bold tracking-wider text-[#6B7280] uppercase mb-1.5">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={signUpPhoneNumber}
+                    onChange={e => { setSignUpPhoneNumber(e.target.value); setSignUpError(null); }}
+                    placeholder="e.g. +19995551234"
                     disabled={isPending}
                     className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base md:text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#CEFF00]/40 disabled:opacity-50 transition-colors duration-150 ease-out"
                   />
@@ -551,7 +598,7 @@ export default function LandingPage() {
                 <button
                   id="signup-btn"
                   type="submit"
-                  disabled={isPending || !signUpInvite || !signUpName || signUpPin.length < 4}
+                  disabled={isPending || !signUpInvite || !signUpName || !signUpNickname || !signUpEmail || !signUpPhoneNumber || signUpPin.length < 4}
                   className="mt-2 flex items-center justify-center gap-2 bg-[#CEFF00] text-[#0A0A0A] font-black rounded-xl px-4 py-3 text-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                 >
                   {isPending ? (
