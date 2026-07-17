@@ -156,13 +156,11 @@ async function syncFitbit(connection: any): Promise<number> {
     return 0;
   }
 
-  const start = connection.last_synced_at
-    ? new Date(connection.last_synced_at)
-    : new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const end = new Date();
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const startTimeMillis = start.getTime();
-  const endTimeMillis = end.getTime();
+  const startTimeMillis = startOfDay.getTime();
+  const endTimeMillis = now.getTime();
   const startTimeNanos = startTimeMillis + '000000';
   const endTimeNanos = endTimeMillis + '000000';
 
@@ -248,7 +246,7 @@ async function syncFitbit(connection: any): Promise<number> {
   // B. Sleep Sessions (Sessions API)
   try {
     const sleepResponse = await fetch(
-      `https://www.googleapis.com/fitness/v1/users/me/sessions?startTime=${start.toISOString()}&endTime=${end.toISOString()}&activityType=72`,
+      `https://www.googleapis.com/fitness/v1/users/me/sessions?startTime=${startOfDay.toISOString()}&endTime=${now.toISOString()}&activityType=72`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
       }
@@ -367,10 +365,10 @@ async function syncFitbit(connection: any): Promise<number> {
     // Deduplicate synced dates to avoid leaderboard score inflation
     for (const log of verifiedLogs) {
       const d = new Date(log.logged_at);
-      const startOfDay = new Date(
+      const utcStartOfDay = new Date(
         Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
       ).toISOString();
-      const endOfDay = new Date(
+      const utcEndOfDay = new Date(
         Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)
       ).toISOString();
 
@@ -379,8 +377,8 @@ async function syncFitbit(connection: any): Promise<number> {
         .delete()
         .eq('user_id', log.user_id)
         .eq('metric_slug', log.metric_slug)
-        .gte('logged_at', startOfDay)
-        .lt('logged_at', endOfDay);
+        .gte('logged_at', utcStartOfDay)
+        .lt('logged_at', utcEndOfDay);
     }
 
     const { error: insertErr } = await supabaseAdmin.from('metric_logs').insert(verifiedLogs);
@@ -399,7 +397,7 @@ async function syncFitbit(connection: any): Promise<number> {
 
     await supabaseAdmin
       .from('wearable_connections')
-      .update({ last_synced_at: end.toISOString() })
+      .update({ last_synced_at: now.toISOString() })
       .eq('id', connection.id);
 
     return verifiedLogs.length;
@@ -428,12 +426,36 @@ async function syncWhoop(connection: any): Promise<number> {
   }
 
   const groupId = member.group_id;
-  const nowStr = new Date().toISOString();
+  const now = new Date();
+  const nowStr = now.toISOString();
 
-  // Mock Whoop data simulation
-  const stepsVal = Math.round(1500 + Math.random() * 4000);
-  const sleepVal = Math.round((6.0 + Math.random() * 3.0) * 10) / 10;
-  const hrVal = Math.round(48 + Math.random() * 15);
+  // Query today's existing values for progressive updates
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  const { data: existingLogs } = await supabaseAdmin
+    .from('metric_logs')
+    .select('metric_slug, value')
+    .eq('user_id', userId)
+    .gte('logged_at', startOfDay.toISOString())
+    .lt('logged_at', endOfDay.toISOString())
+    .eq('status', 'verified');
+
+  const existingSteps = existingLogs?.find((l) => l.metric_slug === 'wearable_steps')?.value;
+  const existingSleep = existingLogs?.find((l) => l.metric_slug === 'wearable_sleep')?.value;
+  const existingHR = existingLogs?.find((l) => l.metric_slug === 'wearable_resting_hr')?.value;
+
+  const stepsVal = existingSteps !== undefined
+    ? Number(existingSteps) + Math.round(500 + Math.random() * 1500)
+    : Math.round(1500 + Math.random() * 4000);
+
+  const sleepVal = existingSleep !== undefined
+    ? Number(existingSleep)
+    : Math.round((6.0 + Math.random() * 3.0) * 10) / 10;
+
+  const hrVal = existingHR !== undefined
+    ? Math.round(Number(existingHR) + (Math.random() > 0.5 ? 1 : -1))
+    : Math.round(48 + Math.random() * 15);
 
   const mockLogs = [
     {
@@ -476,10 +498,10 @@ async function syncWhoop(connection: any): Promise<number> {
 
   // Truncate time and delete existing duplicate logs for the current calendar day (UTC)
   const d = new Date();
-  const startOfDay = new Date(
+  const utcStartOfDay = new Date(
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
   ).toISOString();
-  const endOfDay = new Date(
+  const utcEndOfDay = new Date(
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)
   ).toISOString();
 
@@ -489,8 +511,8 @@ async function syncWhoop(connection: any): Promise<number> {
       .delete()
       .eq('user_id', userId)
       .eq('metric_slug', log.metric_slug)
-      .gte('logged_at', startOfDay)
-      .lt('logged_at', endOfDay);
+      .gte('logged_at', utcStartOfDay)
+      .lt('logged_at', utcEndOfDay);
   }
 
   const { error: insertErr } = await supabaseAdmin.from('metric_logs').insert(verifiedLogs);

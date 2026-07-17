@@ -65,9 +65,11 @@ export default function WearablesClientPage({
   // ── 2. Timeframe calculations ──────────────────────────────────────────
   const now = new Date();
   const getStartDate = () => {
-    if (timeframe === 'daily') return new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    if (timeframe === 'weekly') return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // monthly
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (timeframe === 'daily') return d;
+    if (timeframe === 'weekly') return new Date(d.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return new Date(d.getTime() - 30 * 24 * 60 * 60 * 1000); // monthly
   };
 
   const startDate = getStartDate();
