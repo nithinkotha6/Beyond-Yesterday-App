@@ -444,7 +444,7 @@ CREATE TABLE IF NOT EXISTS public.wearable_connections (
   provider text NOT NULL,
   access_token text NOT NULL,
   refresh_token text NOT NULL,
-  token_expires_at timestamptz NOT NULL,
+  expires_at timestamptz NOT NULL,
   last_synced_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, provider)
@@ -763,6 +763,7 @@ CREATE TABLE IF NOT EXISTS public.chat_history (
 -- Enable RLS and add basic select policy
 ALTER TABLE public.chat_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow service role full access on chat_history" ON public.chat_history;
 CREATE POLICY "Allow service role full access on chat_history"
   ON public.chat_history
   FOR ALL
@@ -825,6 +826,7 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
 -- Enable RLS and grant access
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow service role full access on system_settings" ON public.system_settings;
 CREATE POLICY "Allow service role full access on system_settings"
   ON public.system_settings
   FOR ALL
@@ -833,6 +835,7 @@ CREATE POLICY "Allow service role full access on system_settings"
   WITH CHECK (true);
 
 -- Allow select to anonymous users
+DROP POLICY IF EXISTS "Allow select on system_settings to anonymous" ON public.system_settings;
 CREATE POLICY "Allow select on system_settings to anonymous"
   ON public.system_settings
   FOR SELECT
@@ -1043,5 +1046,11 @@ CREATE POLICY "Allow service role full access on bot_persistent_state"
 
 -- Grant privileges to postgres and service_role
 GRANT ALL PRIVILEGES ON TABLE public.bot_persistent_state TO postgres, service_role;
+
+
+-- ---------------------------------------------------------------------------
+-- MIGRATION: 0018_wearables_expires_at.sql
+-- ---------------------------------------------------------------------------
+ALTER TABLE public.wearable_connections RENAME COLUMN token_expires_at TO expires_at;
 
 

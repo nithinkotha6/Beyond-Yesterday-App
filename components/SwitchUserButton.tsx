@@ -17,10 +17,10 @@ export default function SwitchUserButton() {
 
   return (
     <button
-      id="switch-user-header-btn"
+      id="switch-user-btn"
       onClick={handleLogout}
       disabled={isPending}
-      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-[#EF4444] hover:bg-[#EF4444]/10 active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all shadow-sm cursor-pointer disabled:opacity-50"
       aria-label="Switch User / Log Out"
     >
       {isPending ? (

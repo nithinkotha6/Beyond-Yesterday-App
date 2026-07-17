@@ -14,8 +14,8 @@ interface MetricChartProps {
   metricLabel:  string;     // e.g. "Long Run" — used in empty state
   rangeLabel:   string;     // e.g. "Last 7 Days" — used in empty state
   bucketSize?:  1 | 3 | 7; // 1=daily, 3=3-day buckets, 7=weekly
-  personalBest?: number | null;
-  userName?:     string;
+  recordValue?: number | null;
+  recordHolderName?: string;
 }
 
 /**
@@ -94,8 +94,8 @@ function MetricChart({
   metricLabel,
   rangeLabel,
   bucketSize = 1,
-  personalBest = null,
-  userName = 'Athlete',
+  recordValue = null,
+  recordHolderName = 'Athlete',
 }: MetricChartProps) {
   const [isolatedUserId, setIsolatedUserId] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -328,11 +328,11 @@ function MetricChart({
           )}
         </div>
 
-        {personalBest !== null && (
+        {recordValue !== null && (
           <div className="mb-4 p-3 bg-[#CEFF00]/10 border border-[#CEFF00]/30 rounded-xl flex items-center gap-2 text-xs font-bold text-slate-800 animate-in fade-in slide-in-from-top-1 duration-200">
             <span>🏆</span>
             <span>
-              {userName}&apos;s All-Time Best: <span className="text-slate-900 font-black">{personalBest.toLocaleString()} {unit}</span>
+              {recordHolderName}&apos;s All-Time Best: <span className="text-slate-900 font-black">{recordValue.toLocaleString()} {unit}</span>
             </span>
           </div>
         )}

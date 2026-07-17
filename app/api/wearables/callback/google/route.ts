@@ -82,7 +82,7 @@ export async function GET(req: Request) {
       user_id: userId,
       provider: 'google_fit',
       access_token: tokenData.access_token,
-      token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+      expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
       status: 'active',
     };
 

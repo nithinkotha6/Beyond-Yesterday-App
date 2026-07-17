@@ -670,10 +670,10 @@ export default function SettingsClient({
         >
           <div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 uppercase">
-              👑 God Mode Administration
+              👑 Command Center
             </h2>
             <p className="text-slate-500 text-xs mt-1">
-              Emergency room overrides, kiosk credential resets, and AI webhook control.
+              Emergency room overrides, password resets, and AI webhook control.
             </p>
           </div>
           <ChevronDown
@@ -752,7 +752,7 @@ export default function SettingsClient({
               type="submit"
               className="bg-[#CEFF00] hover:bg-[#CEFF00]/90 text-black font-bold text-sm px-6 py-3 rounded-xl transition min-h-[44px] cursor-pointer w-full sm:w-auto"
             >
-              Unlock Console
+              Unlock
             </button>
             {pinUnlockError && (
               <p className="text-xs text-god-red font-bold mt-1 block w-full">{pinUnlockError}</p>
@@ -888,10 +888,10 @@ export default function SettingsClient({
                 </form>
               </div>
 
-              {/* Kiosk Credentials Reset Tool */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col gap-4 hover:border-slate-300 transition-all duration-200 shadow-sm">
+              {/* Password Reset Tool */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col gap-4 hover:border-slate-300 transition-all duration-200 shadow-sm text-slate-900">
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                  Kiosk Credentials Reset
+                  Password Reset
                 </h3>
                 <p className="text-xs text-slate-500">
                   Instantly overwrite a user&apos;s Kiosk PIN to allow them login access.

@@ -8,8 +8,13 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "The Growth Club — Dashboard",
-  description: "Train together. Compete together. Grow together.",
+  title: 'The Growth Club',
+  description: 'Train together. Compete together. Grow together.',
+  openGraph: {
+    title: 'The Growth Club',
+    description: 'Train together. Compete together. Grow together.',
+    images: ['/logo.png'],
+  },
 };
 
 export default function RootLayout({

@@ -6,7 +6,7 @@ import { safeCompare } from '@/lib/security';
  * Proactively refreshes the Google Fit Access Token if expired or expiring within 5 minutes.
  */
 async function refreshGoogleAccessToken(connection: any) {
-  const expiresAt = new Date(connection.token_expires_at);
+  const expiresAt = new Date(connection.expires_at);
   const now = new Date();
   
   // Refresh if expired or expiring in less than 5 minutes (300,000ms)
@@ -55,7 +55,7 @@ async function refreshGoogleAccessToken(connection: any) {
     .from('wearable_connections')
     .update({
       access_token: newAccessToken,
-      token_expires_at: newExpiresAt,
+      expires_at: newExpiresAt,
     })
     .eq('id', connection.id);
 
