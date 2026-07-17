@@ -180,8 +180,6 @@ async function syncFitbit(connection: any): Promise<number> {
           aggregateBy: [
             {
               dataTypeName: 'com.google.step_count.delta',
-              dataSourceId:
-                'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps',
             },
           ],
           bucketByTime: { durationMillis: 86400000 },
