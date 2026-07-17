@@ -51,11 +51,11 @@ export default function GangClient({ initialData }: GangClientProps) {
             return (
               <div
                 key={profile.id}
-                className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center p-6 transition-[transform,box-shadow] duration-200 ease-out hover:shadow-md hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
+                className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center text-center p-6 transition-[transform,box-shadow] duration-200 ease-out hover:shadow-md hover:-translate-y-1 animate-in fade-in zoom-in-95 duration-300"
                 style={{ animationDelay: `${index * 30}ms` }}
               >
                 {/* Large Centered Reusable UserAvatar */}
-                <div className="mb-4 relative">
+                <div className="mb-2 relative">
                   <UserAvatar
                     user={profile}
                     size="3xl"
@@ -68,11 +68,11 @@ export default function GangClient({ initialData }: GangClientProps) {
                 </div>
 
                 {/* Name Details */}
-                <div className="flex flex-col w-full min-w-0">
-                  <h3 className="text-slate-900 font-bold text-sm truncate w-full">
+                <div className="flex flex-col items-center text-center w-full min-w-0">
+                  <h3 className="text-slate-900 font-black text-base md:text-lg truncate w-full">
                     {profile.nickname || profile.full_name}
                   </h3>
-                  <p className="text-slate-500 uppercase text-xs mt-0.5 truncate w-full">
+                  <p className="text-slate-500 uppercase text-xs font-semibold mt-0.5 truncate w-full">
                     {profile.full_name || 'Club Member'}
                   </p>
                 </div>

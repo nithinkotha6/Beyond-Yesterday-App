@@ -483,3 +483,78 @@ export async function adminDeleteVocabBank(id: string, groupId?: string) {
     return { success: false, error: getErrorMessage(err) };
   }
 }
+
+export async function adminUploadAvatarAction(
+  userId: string,
+  base64Image: string,
+  fileName: string,
+  groupId?: string
+) {
+  if (!userId || !base64Image || !fileName) {
+    return { success: false, error: 'Missing required parameters.' };
+  }
+
+  try {
+    const supabase = createAdminClient(groupId);
+
+    // 1. Decode base64 to binary Buffer
+    const buffer = Buffer.from(base64Image, 'base64');
+
+    // 2. Generate unique filename
+    const fileExt = fileName.split('.').pop() || 'jpg';
+    const cleanFileName = `${userId}_${Date.now()}.${fileExt}`;
+    const filePath = `avatars/${cleanFileName}`;
+
+    // 3. Ensure avatars bucket exists and is public
+    try {
+      await supabase.storage.createBucket('avatars', {
+        public: true,
+        fileSizeLimit: 1048576, // 1MB limit
+      });
+    } catch (bucketErr) {
+      console.log('Bucket check/creation warning:', bucketErr);
+    }
+
+    // 4. Upload buffer to avatars storage bucket
+    const { error: uploadErr } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, buffer, {
+        contentType: `image/${fileExt === 'png' ? 'png' : 'jpeg'}`,
+        upsert: true,
+      });
+
+    if (uploadErr) {
+      console.error('[adminUploadAvatarAction] Storage upload error:', uploadErr);
+      return { success: false, error: `Storage upload failed: ${uploadErr.message}` };
+    }
+
+    // 5. Get Public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicUrlData?.publicUrl;
+    if (!publicUrl) {
+      return { success: false, error: 'Failed to retrieve public URL for uploaded avatar.' };
+    }
+
+    // 6. Update user's profiles table record
+    const { error: dbErr } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', userId);
+
+    if (dbErr) {
+      console.error('[adminUploadAvatarAction] Database update error:', dbErr);
+      return { success: false, error: `Profile update failed: ${dbErr.message}` };
+    }
+
+    // 7. Force Next.js cache revalidation
+    revalidatePath('/', 'layout');
+
+    return { success: true, avatarUrl: publicUrl };
+  } catch (err) {
+    console.error('[adminUploadAvatarAction] Crash:', err);
+    return { success: false, error: getErrorMessage(err) };
+  }
+}

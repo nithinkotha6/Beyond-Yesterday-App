@@ -21,9 +21,11 @@ import {
   adminUpsertMemberLore,
   adminFetchVocabBanks,
   adminUpsertVocabBank,
-  adminDeleteVocabBank
+  adminDeleteVocabBank,
+  adminUploadAvatarAction
 } from '@/app/actions/admin';
 import { Sliders, Plus, Loader2, CheckCircle, AlertCircle, Search, Edit3, Trash2, Check, X } from 'lucide-react';
+import UserAvatar from '@/components/UserAvatar';
 
 
 export interface ProfileDetails {
@@ -144,6 +146,64 @@ export default function SettingsClient({
   const [vocabGender, setVocabGender] = useState('Male');
   const [vocabWords, setVocabWords] = useState('');
   const [vocabFeedback, setVocabFeedback] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Avatar Upload States
+  const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
+  const [targetUploadUserId, setTargetUploadUserId] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const triggerAvatarUpload = (userId: string) => {
+    setTargetUploadUserId(userId);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !targetUploadUserId) return;
+
+    if (file.size > 1024 * 1024) {
+      alert("Avatar file size exceeds 1MB limit. Please upload a smaller image.");
+      return;
+    }
+
+    setUploadingUserId(targetUploadUserId);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Str = (reader.result as string).split(',')[1];
+        const res = await adminUploadAvatarAction(targetUploadUserId, base64Str, file.name, session.groupId);
+        setUploadingUserId(null);
+
+        if (res.success && res.avatarUrl) {
+          setMembers((prev) =>
+            prev.map((member) => {
+              if (member.profiles?.id === targetUploadUserId) {
+                return {
+                  ...member,
+                  profiles: {
+                    ...member.profiles,
+                    avatar_url: res.avatarUrl || null,
+                  },
+                };
+              }
+              return member;
+            })
+          );
+        } else {
+          alert(res.error || "Failed to upload avatar.");
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Avatar upload error:", err);
+      setUploadingUserId(null);
+      alert("An error occurred during avatar upload.");
+    }
+  };
 
   // Load Brain Lore, Vocab, and Metric Definitions on Unlock
   React.useEffect(() => {
@@ -488,17 +548,17 @@ export default function SettingsClient({
 
       <div className="max-w-2xl mx-auto w-full">
         {/* Creation Form */}
-        <section className="bg-god-black/80 rounded-[24px] border border-god-blue shadow-[0_8px_30px_rgba(0,0,0,0.3)] p-6 md:p-8 flex flex-col gap-4">
-          <h2 className="text-lg font-black text-slate-100 tracking-tight flex items-center gap-2">
+        <section className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 flex flex-col gap-4 shadow-sm">
+          <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
             Create Custom Metric
           </h2>
-          <p className="text-god-silver text-xs">
+          <p className="text-slate-500 text-xs">
             Add a new metric like &quot;Pushups&quot; or &quot;Book Pages&quot;. New metrics immediately integrate with the dynamic dashboard selectors and leaderboard scores.
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="metric-name" className="text-xs font-bold text-god-silver uppercase tracking-wider block">
+              <label htmlFor="metric-name" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Metric Name
               </label>
               <input
@@ -509,12 +569,12 @@ export default function SettingsClient({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Pushups, Book Pages, Water Intake"
-                className="w-full rounded-xl border border-god-blue px-4 py-3 text-base text-slate-100 bg-god-black focus:outline-none focus:ring-1 focus:ring-god-orange placeholder-slate-600 disabled:opacity-50 min-h-[44px]"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-900 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#CEFF00] focus:border-[#CEFF00] placeholder-slate-400 disabled:opacity-50 min-h-[44px]"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="metric-unit" className="text-xs font-bold text-god-silver uppercase tracking-wider block">
+              <label htmlFor="metric-unit" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Measurement Unit
               </label>
               <input
@@ -525,12 +585,12 @@ export default function SettingsClient({
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
                 placeholder="e.g. Reps, Pages, Liters, Miles"
-                className="w-full rounded-xl border border-god-blue px-4 py-3 text-base text-slate-100 bg-god-black focus:outline-none focus:ring-1 focus:ring-god-orange placeholder-slate-600 disabled:opacity-50 min-h-[44px]"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-900 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#CEFF00] focus:border-[#CEFF00] placeholder-slate-400 disabled:opacity-50 min-h-[44px]"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="metric-sort" className="text-xs font-bold text-god-silver uppercase tracking-wider block">
+              <label htmlFor="metric-sort" className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Leaderboard Sort Order
               </label>
               <select
@@ -538,10 +598,10 @@ export default function SettingsClient({
                 value={sortDirection}
                 onChange={(e) => setSortDirection(e.target.value as 'asc' | 'desc')}
                 disabled={isPending}
-                className="w-full rounded-xl border border-god-blue px-4 py-3 text-base text-slate-100 bg-god-black focus:outline-none focus:ring-1 focus:ring-god-orange disabled:opacity-50 min-h-[44px] appearance-none"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-900 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#CEFF00] focus:border-[#CEFF00] disabled:opacity-50 min-h-[44px] appearance-none"
               >
-                <option value="desc" className="bg-god-black text-slate-100">Higher is Better (Descending - e.g. reps, speed)</option>
-                <option value="asc" className="bg-god-black text-slate-100">Lower is Better (Ascending - e.g. time, weight loss)</option>
+                <option value="desc" className="bg-white text-slate-900">Higher is Better (Descending - e.g. reps, speed)</option>
+                <option value="asc" className="bg-white text-slate-900">Lower is Better (Ascending - e.g. time, weight loss)</option>
               </select>
             </div>
 
@@ -567,7 +627,7 @@ export default function SettingsClient({
             <button
               type="submit"
               disabled={isPending || !name.trim() || !unit.trim()}
-              className="w-full bg-god-orange hover:bg-god-orange/90 text-white text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 transition"
+              className="w-full bg-[#CEFF00] hover:bg-[#CEFF00]/90 text-black text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 transition"
             >
               {isPending ? (
                 <>
@@ -586,15 +646,15 @@ export default function SettingsClient({
       </div>
 
       {/* God Mode Administration Console */}
-      <hr className="border-god-blue my-4" />
+      <hr className="border-slate-200 my-4" />
 
-      <section className="bg-god-black/80 border border-god-blue rounded-[24px] shadow-[0_8px_30px_rgba(0,0,0,0.3)] p-6 md:p-8 flex flex-col gap-5 hover:border-god-blue/80 transition-all duration-200 text-slate-100">
+      <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 md:p-8 flex flex-col gap-5 hover:border-slate-300 transition-all duration-200 text-slate-900">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-black text-slate-100 tracking-tight flex items-center gap-2 uppercase">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2 uppercase">
               👑 God Mode Administration
             </h2>
-            <p className="text-god-silver text-xs">
+            <p className="text-slate-500 text-xs">
               Emergency room overrides, kiosk credential resets, and AI webhook control.
             </p>
           </div>
@@ -646,7 +706,7 @@ export default function SettingsClient({
             className="flex flex-col sm:flex-row gap-3 items-end max-w-md mt-2"
           >
             <div className="flex-1 flex flex-col gap-1.5 w-full">
-              <label className="text-xs font-bold text-god-silver uppercase tracking-wider block">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Enter Master Password
               </label>
               <input
@@ -655,12 +715,12 @@ export default function SettingsClient({
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 placeholder="••••••"
-                className="w-full rounded-xl border border-god-blue px-4 py-3 text-base text-slate-100 bg-god-black focus:outline-none focus:ring-1 focus:ring-god-orange placeholder-slate-600 min-h-[44px]"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base text-slate-900 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#CEFF00] focus:border-[#CEFF00] placeholder-slate-400 min-h-[44px]"
               />
             </div>
             <button
               type="submit"
-              className="bg-god-orange hover:bg-god-orange/90 text-white font-bold text-sm px-6 py-3 rounded-xl transition min-h-[44px] cursor-pointer w-full sm:w-auto"
+              className="bg-[#CEFF00] hover:bg-[#CEFF00]/90 text-black font-bold text-sm px-6 py-3 rounded-xl transition min-h-[44px] cursor-pointer w-full sm:w-auto"
             >
               Unlock Console
             </button>
@@ -676,15 +736,15 @@ export default function SettingsClient({
             <div className="flex flex-col gap-6">
               
               {/* Module C: AI Webhook Kill Switch */}
-              <div className="bg-god-black/80 border border-god-blue rounded-2xl p-5 flex flex-col gap-3 hover:border-god-blue/80 transition-all duration-200">
-                <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 hover:border-slate-300 transition-all duration-200 shadow-sm">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
                   AI Bot Control Switch
                 </h3>
-                <p className="text-xs text-god-silver">
+                <p className="text-xs text-slate-500">
                   Toggle to mute or unmute @fisky from responding to WhatsApp messages in this group.
                 </p>
-                <div className="flex items-center justify-between bg-god-black border border-god-blue rounded-xl p-3.5 mt-1">
-                  <span className="text-xs font-bold text-slate-100">Mute @fisky WhatsApp Webhook</span>
+                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3.5 mt-1">
+                  <span className="text-xs font-bold text-slate-900">Mute @fisky WhatsApp Webhook</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -716,11 +776,11 @@ export default function SettingsClient({
               </div>
 
               {/* Kiosk Credentials Reset Tool */}
-              <div className="bg-god-black/80 border border-god-blue rounded-2xl p-5 flex flex-col gap-4 hover:border-god-blue/80 transition-all duration-200">
-                <h3 className="text-sm font-black text-slate-100 uppercase tracking-wider">
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col gap-4 hover:border-slate-300 transition-all duration-200 shadow-sm">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
                   Kiosk Credentials Reset
                 </h3>
-                <p className="text-xs text-god-silver">
+                <p className="text-xs text-slate-500">
                   Instantly overwrite a user&apos;s Kiosk PIN to allow them login access.
                 </p>
                 
@@ -742,18 +802,18 @@ export default function SettingsClient({
                   className="flex flex-col gap-3"
                 >
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-god-silver uppercase tracking-wider">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                       Select Member
                     </label>
                     <select
                       value={resetSelectedUser}
                       onChange={(e) => setResetSelectedUser(e.target.value)}
                       required
-                      className="w-full rounded-xl border border-god-blue px-3.5 py-2.5 text-xs text-slate-100 bg-god-black focus:outline-none focus:ring-1 focus:ring-god-orange"
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#CEFF00] focus:border-[#CEFF00]"
                     >
-                      <option value="" className="bg-god-black text-slate-100">-- Choose User --</option>
+                      <option value="" className="bg-white text-slate-900">-- Choose User --</option>
                       {members.filter(m => m.profiles?.is_active !== false).map((m) => (
-                        <option key={m.user_id} value={m.profiles?.id} className="bg-god-black text-slate-100">
+                        <option key={m.user_id} value={m.profiles?.id} className="bg-white text-slate-900">
                           {m.profiles?.nickname || m.profiles?.full_name}
                         </option>
                       ))}
@@ -761,7 +821,7 @@ export default function SettingsClient({
                   </div>
                   
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-god-silver uppercase tracking-wider">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                       New 4-Digit PIN
                     </label>
                     <input
@@ -771,14 +831,14 @@ export default function SettingsClient({
                       value={newKioskPin}
                       onChange={(e) => setNewKioskPin(e.target.value.replace(/\D/g, ''))}
                       required
-                      className="w-full rounded-xl border border-god-blue px-3.5 py-2.5 text-xs text-slate-100 bg-god-black focus:outline-none focus:ring-1 focus:ring-god-orange placeholder-slate-600"
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-900 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-[#CEFF00] focus:border-[#CEFF00] placeholder-slate-400"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isSubmittingAdmin || !resetSelectedUser || newKioskPin.length !== 4}
-                    className="w-full bg-god-orange hover:bg-god-orange/90 text-white text-xs font-bold py-2.5 rounded-xl transition cursor-pointer disabled:opacity-40"
+                    className="w-full bg-[#CEFF00] hover:bg-[#CEFF00]/90 text-black text-xs font-bold py-2.5 rounded-xl transition cursor-pointer disabled:opacity-40"
                   >
                     Reset PIN
                   </button>
@@ -1424,9 +1484,18 @@ export default function SettingsClient({
               </p>
 
               <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white text-slate-900 max-h-[300px]">
+                {/* Hidden input for avatar upload */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleAvatarFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="px-4 py-3">Avatar</th>
                       <th className="px-4 py-3">Name</th>
                       <th className="px-4 py-3">Nickname</th>
                       <th className="px-4 py-3">Role</th>
@@ -1439,6 +1508,30 @@ export default function SettingsClient({
                       const isActive = m.profiles?.is_active !== false;
                       return (
                         <tr key={m.user_id} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 text-slate-900 bg-white">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {m.profiles ? (
+                                <UserAvatar user={m.profiles} size="sm" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-slate-100" />
+                              )}
+                              <button
+                                type="button"
+                                disabled={uploadingUserId === m.profiles?.id}
+                                onClick={() => triggerAvatarUpload(m.profiles?.id || '')}
+                                className="px-2 py-1 text-[9px] font-bold rounded bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200/50 cursor-pointer disabled:opacity-50 flex items-center gap-1 transition"
+                              >
+                                {uploadingUserId === m.profiles?.id ? (
+                                  <>
+                                    <Loader2 size={10} className="animate-spin" />
+                                    ...
+                                  </>
+                                ) : (
+                                  <>📷 Upload</>
+                                )}
+                              </button>
+                            </div>
+                          </td>
                           <td className="px-4 py-3.5 font-semibold text-slate-900">
                             {m.profiles?.full_name}
                           </td>
