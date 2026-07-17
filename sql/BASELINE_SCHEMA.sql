@@ -456,28 +456,37 @@ CREATE INDEX IF NOT EXISTS wearable_connections_user_id_idx ON public.wearable_c
 CREATE TABLE IF NOT EXISTS public.wearable_steps (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   connection_id uuid NOT NULL REFERENCES public.wearable_connections (id) ON DELETE CASCADE,
+  user_id uuid REFERENCES public.profiles (id) ON DELETE CASCADE,
   logged_date date NOT NULL,
   value integer NOT NULL,
+  source text,
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (connection_id, logged_date)
+  UNIQUE (connection_id, logged_date),
+  CONSTRAINT wearable_steps_user_date_unique UNIQUE (user_id, logged_date)
 );
 
 CREATE TABLE IF NOT EXISTS public.wearable_sleep (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   connection_id uuid NOT NULL REFERENCES public.wearable_connections (id) ON DELETE CASCADE,
+  user_id uuid REFERENCES public.profiles (id) ON DELETE CASCADE,
   logged_date date NOT NULL,
   value numeric NOT NULL,
+  source text,
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (connection_id, logged_date)
+  UNIQUE (connection_id, logged_date),
+  CONSTRAINT wearable_sleep_user_date_unique UNIQUE (user_id, logged_date)
 );
 
 CREATE TABLE IF NOT EXISTS public.wearable_resting_hr (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   connection_id uuid NOT NULL REFERENCES public.wearable_connections (id) ON DELETE CASCADE,
+  user_id uuid REFERENCES public.profiles (id) ON DELETE CASCADE,
   logged_date date NOT NULL,
   value integer NOT NULL,
+  source text,
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (connection_id, logged_date)
+  UNIQUE (connection_id, logged_date),
+  CONSTRAINT wearable_resting_hr_user_date_unique UNIQUE (user_id, logged_date)
 );
 
 -- Enable Row Level Security (RLS)
