@@ -1,11 +1,13 @@
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
+
 import { createAdminClient } from '../lib/supabase/server';
 
 async function main() {
   const supabase = createAdminClient();
-  
-  // Inspect active tables and their RLS policies
-  const { data: profiles, error: profError } = await supabase.from('profiles').select('id, full_name').limit(2);
-  console.log('Profiles via Admin Client:', { profiles, profError });
+  const { data, error } = await supabase.from('metric_definitions').select('*');
+  console.log('metric_definitions:', { data, error });
 }
 
 main().catch(console.error);

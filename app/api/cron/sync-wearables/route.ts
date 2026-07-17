@@ -3,15 +3,56 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { safeCompare } from '@/lib/security';
 
 /**
+ * Helper to validate logs against metric_definitions in the database.
+ * Logs the mapping attempt and throws console warnings if missing.
+ */
+async function validateMetricDefinitions(
+  supabaseAdmin: any,
+  logs: any[]
+): Promise<{ verifiedLogs: any[]; slugToIdMap: Record<string, string> }> {
+  const verifiedLogs: any[] = [];
+  const slugToIdMap: Record<string, string> = {};
+
+  const uniqueSlugs = Array.from(new Set(logs.map((l) => l.metric_slug)));
+
+  for (const slug of uniqueSlugs) {
+    const targetMetricName = slug;
+    console.log('[Wearables Sync] Attempting to map activity to metric name:', targetMetricName);
+
+    const { data: metricDef, error } = await supabaseAdmin
+      .from('metric_definitions')
+      .select('id')
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (error || !metricDef) {
+      console.warn(
+        `[Wearables Sync] CRITICAL: Could not find matching metric definition in DB for "${targetMetricName}". Skipping insert.`
+      );
+    } else {
+      slugToIdMap[slug] = metricDef.id;
+    }
+  }
+
+  for (const log of logs) {
+    if (slugToIdMap[log.metric_slug]) {
+      verifiedLogs.push(log);
+    }
+  }
+
+  return { verifiedLogs, slugToIdMap };
+}
+
+/**
  * Proactively refreshes the Google Fit Access Token if expired or expiring within 5 minutes.
  */
-async function refreshGoogleAccessToken(connection: any) {
+async function refreshGoogleAccessToken(connection: any): Promise<string | null> {
   const expiresAt = new Date(connection.expires_at);
   const now = new Date();
-  
+
   // Refresh if expired or expiring in less than 5 minutes (300,000ms)
   const isExpiring = expiresAt.getTime() - now.getTime() < 300000;
-  
+
   if (!isExpiring) {
     return connection.access_token;
   }
@@ -22,54 +63,76 @@ async function refreshGoogleAccessToken(connection: any) {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error('Google OAuth credentials not configured in process environment.');
+    console.error(
+      `[Wearables Sync] ERROR refreshing token for user ${connection.user_id}: Google OAuth credentials not configured in process environment.`
+    );
+    return null;
   }
 
   if (!connection.refresh_token) {
-    throw new Error(`No refresh token available for user ${connection.user_id}`);
+    console.error(
+      `[Wearables Sync] ERROR refreshing token for user ${connection.user_id}: No refresh token available in database.`
+    );
+    return null;
   }
 
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: connection.refresh_token,
-      grant_type: 'refresh_token',
-    }),
-  });
+  try {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: connection.refresh_token,
+        grant_type: 'refresh_token',
+      }),
+    });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Google refresh token exchange failed: ${errText}`);
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(
+        `[Wearables Sync] ERROR refreshing token for user ${connection.user_id}:`,
+        errText
+      );
+      return null;
+    }
+
+    const data = await response.json();
+    const newAccessToken = data.access_token;
+    const newExpiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+
+    // Save updated credentials
+    const supabaseAdmin = createAdminClient();
+    const { error: updateErr } = await supabaseAdmin
+      .from('wearable_connections')
+      .update({
+        access_token: newAccessToken,
+        expires_at: newExpiresAt,
+      })
+      .eq('id', connection.id);
+
+    if (updateErr) {
+      console.error(`[Wearables Sync] Failed to save refreshed credentials:`, updateErr);
+      return null;
+    }
+
+    console.log(
+      `[Wearables Sync] Successfully refreshed token for user ${connection.user_id}. New expiry: ${newExpiresAt}`
+    );
+    return newAccessToken;
+  } catch (err: any) {
+    console.error(
+      `[Wearables Sync] ERROR refreshing token for user ${connection.user_id}:`,
+      err?.message || err
+    );
+    return null;
   }
-
-  const data = await response.json();
-  const newAccessToken = data.access_token;
-  const newExpiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
-
-  // Save updated credentials
-  const supabaseAdmin = createAdminClient();
-  const { error: updateErr } = await supabaseAdmin
-    .from('wearable_connections')
-    .update({
-      access_token: newAccessToken,
-      expires_at: newExpiresAt,
-    })
-    .eq('id', connection.id);
-
-  if (updateErr) {
-    console.error(`[Wearables Sync] Failed to save refreshed credentials:`, updateErr);
-  }
-
-  return newAccessToken;
 }
 
 /**
  * Processes live Google Fit REST pulls or mock provider simulation.
  */
-async function fetchAndProcessWearableData(connection: any) {
+async function fetchAndProcessWearableData(connection: any): Promise<number> {
   const supabaseAdmin = createAdminClient();
   const userId = connection.user_id;
 
@@ -82,7 +145,7 @@ async function fetchAndProcessWearableData(connection: any) {
 
   if (!member || !member.group_id) {
     console.warn(`[Wearables Sync] User ${userId} has no active group member record.`);
-    return;
+    return 0;
   }
 
   const groupId = member.group_id;
@@ -94,20 +157,7 @@ async function fetchAndProcessWearableData(connection: any) {
     const sleepVal = Math.round((6.0 + Math.random() * 3.0) * 10) / 10;
     const hrVal = Math.round(48 + Math.random() * 15);
 
-    // Truncate time and delete existing duplicate logs for the current calendar day (UTC)
-    const d = new Date();
-    const startOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
-    const endOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString();
-
-    await supabaseAdmin
-      .from('metric_logs')
-      .delete()
-      .eq('user_id', userId)
-      .in('metric_slug', ['wearable_steps', 'wearable_sleep', 'wearable_resting_hr'])
-      .gte('logged_at', startOfDay)
-      .lt('logged_at', endOfDay);
-
-    const { error: insertErr } = await supabaseAdmin.from('metric_logs').insert([
+    const mockLogs = [
       {
         user_id: userId,
         group_id: groupId,
@@ -134,21 +184,65 @@ async function fetchAndProcessWearableData(connection: any) {
         unit: 'bpm',
         status: 'verified',
         logged_at: nowStr,
-      }
-    ]);
+      },
+    ];
 
-    if (insertErr) throw new Error(insertErr.message);
+    const { verifiedLogs, slugToIdMap } = await validateMetricDefinitions(
+      supabaseAdmin,
+      mockLogs
+    );
+    if (verifiedLogs.length === 0) {
+      console.warn(`[Wearables Sync] No valid metrics to insert for mock user ${userId}.`);
+      return 0;
+    }
+
+    // Truncate time and delete existing duplicate logs for the current calendar day (UTC)
+    const d = new Date();
+    const startOfDay = new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+    ).toISOString();
+    const endOfDay = new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)
+    ).toISOString();
+
+    for (const log of verifiedLogs) {
+      await supabaseAdmin
+        .from('metric_logs')
+        .delete()
+        .eq('user_id', userId)
+        .eq('metric_slug', log.metric_slug)
+        .gte('logged_at', startOfDay)
+        .lt('logged_at', endOfDay);
+    }
+
+    const { error: insertErr } = await supabaseAdmin.from('metric_logs').insert(verifiedLogs);
+
+    if (insertErr) {
+      console.error('[Wearables Sync] DB INSERT ERROR:', JSON.stringify(insertErr));
+      throw new Error(insertErr.message);
+    }
+
+    for (const log of verifiedLogs) {
+      const metricId = slugToIdMap[log.metric_slug] || log.metric_slug;
+      console.log(
+        `[Wearables Sync] SUCCESS: Logged value ${log.value} for user ${log.user_id} in metric ${metricId}`
+      );
+    }
 
     await supabaseAdmin
       .from('wearable_connections')
       .update({ last_synced_at: nowStr })
       .eq('id', connection.id);
 
-    return;
+    return verifiedLogs.length;
   }
 
   // 2. Google Fit Real API Handshake & Sync
   const accessToken = await refreshGoogleAccessToken(connection);
+  if (!accessToken) {
+    console.warn(`[Wearables Sync] Skipping user ${userId} due to token refresh failure.`);
+    return 0;
+  }
 
   const start = connection.last_synced_at
     ? new Date(connection.last_synced_at)
@@ -164,26 +258,42 @@ async function fetchAndProcessWearableData(connection: any) {
 
   // A. Steps (Aggregate API)
   try {
-    const stepsResponse = await fetch('https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        aggregateBy: [{
-          dataTypeName: 'com.google.step_count.delta',
-          dataSourceId: 'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps'
-        }],
-        bucketByTime: { durationMillis: 86400000 },
-        startTimeMillis,
-        endTimeMillis,
-      }),
-    });
+    const stepsResponse = await fetch(
+      'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          aggregateBy: [
+            {
+              dataTypeName: 'com.google.step_count.delta',
+              dataSourceId:
+                'derived:com.google.step_count.delta:com.google.android.gms:estimated_steps',
+            },
+          ],
+          bucketByTime: { durationMillis: 86400000 },
+          startTimeMillis,
+          endTimeMillis,
+        }),
+      }
+    );
 
     if (stepsResponse.ok) {
       const stepsData = await stepsResponse.json();
-      if (stepsData.bucket) {
+      console.log(
+        '[Wearables Sync] Google Fit raw response for user',
+        userId,
+        JSON.stringify(stepsData, null, 2)
+      );
+
+      if (!stepsData.bucket || stepsData.bucket.length === 0) {
+        console.log(
+          '[Wearables Sync] WARNING: Google Fit returned 0 data points for this timeframe.'
+        );
+      } else {
         for (const bucket of stepsData.bucket) {
           let bucketSteps = 0;
           if (bucket.dataset) {
@@ -212,6 +322,12 @@ async function fetchAndProcessWearableData(connection: any) {
           }
         }
       }
+    } else {
+      const errText = await stepsResponse.text();
+      console.error(
+        `[Wearables Sync] Google Fit raw request failed for user ${userId}:`,
+        errText
+      );
     }
   } catch (err) {
     console.error('[Google Fit Sync] Steps API fetch failed:', err);
@@ -222,7 +338,7 @@ async function fetchAndProcessWearableData(connection: any) {
     const sleepResponse = await fetch(
       `https://www.googleapis.com/fitness/v1/users/me/sessions?startTime=${start.toISOString()}&endTime=${end.toISOString()}&activityType=72`,
       {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       }
     );
 
@@ -255,7 +371,7 @@ async function fetchAndProcessWearableData(connection: any) {
   try {
     const hrUrl = `https://www.googleapis.com/fitness/v1/users/me/dataSources/derived:com.google.heart_rate.bpm:com.google.android.gms:resting_heart_rate/datasets/${startTimeNanos}-${endTimeNanos}`;
     const hrResponse = await fetch(hrUrl, {
-      headers: { 'Authorization': `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     let hrFetched = false;
@@ -288,7 +404,7 @@ async function fetchAndProcessWearableData(connection: any) {
       // Fallback: extract minimum heart rate from standard heart rate dataset
       const fallbackUrl = `https://www.googleapis.com/fitness/v1/users/me/dataSources/derived:com.google.heart_rate.bpm:com.google.android.gms:merge_heart_rate_bpm/datasets/${startTimeNanos}-${endTimeNanos}`;
       const fallbackResponse = await fetch(fallbackUrl, {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (fallbackResponse.ok) {
         const fallbackData = await fallbackResponse.json();
@@ -328,11 +444,24 @@ async function fetchAndProcessWearableData(connection: any) {
 
   // F. Insert normalized metrics & advance sync tracker
   if (insertLogs.length > 0) {
+    const { verifiedLogs, slugToIdMap } = await validateMetricDefinitions(
+      supabaseAdmin,
+      insertLogs
+    );
+    if (verifiedLogs.length === 0) {
+      console.warn(`[Wearables Sync] No valid metrics to insert for user ${userId}.`);
+      return 0;
+    }
+
     // Deduplicate synced dates to avoid leaderboard score inflation
-    for (const log of insertLogs) {
+    for (const log of verifiedLogs) {
       const d = new Date(log.logged_at);
-      const startOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
-      const endOfDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)).toISOString();
+      const startOfDay = new Date(
+        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+      ).toISOString();
+      const endOfDay = new Date(
+        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1)
+      ).toISOString();
 
       await supabaseAdmin
         .from('metric_logs')
@@ -343,25 +472,37 @@ async function fetchAndProcessWearableData(connection: any) {
         .lt('logged_at', endOfDay);
     }
 
-    const { error: insertErr } = await supabaseAdmin
-      .from('metric_logs')
-      .insert(insertLogs);
+    const { error: insertErr } = await supabaseAdmin.from('metric_logs').insert(verifiedLogs);
 
     if (insertErr) {
-      console.error('[Google Fit Sync] Database insert logs failed:', insertErr.message);
+      console.error('[Wearables Sync] DB INSERT ERROR:', JSON.stringify(insertErr));
       throw new Error(insertErr.message);
     }
+
+    for (const log of verifiedLogs) {
+      const metricId = slugToIdMap[log.metric_slug] || log.metric_slug;
+      console.log(
+        `[Wearables Sync] SUCCESS: Logged value ${log.value} for user ${log.user_id} in metric ${metricId}`
+      );
+    }
+
+    const { error: updateErr } = await supabaseAdmin
+      .from('wearable_connections')
+      .update({ last_synced_at: end.toISOString() })
+      .eq('id', connection.id);
+
+    if (updateErr) {
+      console.error(
+        '[Google Fit Sync] Failed to update connection sync tracker:',
+        updateErr.message
+      );
+      throw new Error(updateErr.message);
+    }
+
+    return verifiedLogs.length;
   }
 
-  const { error: updateErr } = await supabaseAdmin
-    .from('wearable_connections')
-    .update({ last_synced_at: end.toISOString() })
-    .eq('id', connection.id);
-
-  if (updateErr) {
-    console.error('[Google Fit Sync] Failed to update connection sync tracker:', updateErr.message);
-    throw new Error(updateErr.message);
-  }
+  return 0;
 }
 
 /**
@@ -373,7 +514,7 @@ export async function GET(req: Request) {
     // Bearer token verification
     const authHeader = req.headers.get('Authorization');
     const secret = process.env.CRON_SECRET;
-    
+
     if (!secret || !authHeader || !safeCompare(authHeader, `Bearer ${secret}`)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -391,23 +532,37 @@ export async function GET(req: Request) {
     }
 
     const list = connections || [];
-    let processed = 0;
+    let usersProcessed = 0;
+    let successfulInserts = 0;
+    const errorsList: string[] = [];
 
     for (const conn of list) {
       try {
-        await fetchAndProcessWearableData(conn);
-        processed++;
+        usersProcessed++;
+        const inserts = await fetchAndProcessWearableData(conn);
+        successfulInserts += inserts || 0;
       } catch (err: any) {
         console.error(`[Wearables Cron] Failed on connection ${conn.id}:`, err);
+        errorsList.push(`Connection ${conn.id}: ${err?.message || err}`);
       }
     }
 
     return NextResponse.json({
-      success: true,
-      message: `Successfully processed ${processed} of ${list.length} connections.`,
+      success: errorsList.length === 0,
+      usersProcessed,
+      successfulInserts,
+      errors: errorsList,
     });
   } catch (err: any) {
     console.error('[Wearables Cron] Fatal route error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        usersProcessed: 0,
+        successfulInserts: 0,
+        errors: [err?.message || String(err)],
+      },
+      { status: 500 }
+    );
   }
 }
