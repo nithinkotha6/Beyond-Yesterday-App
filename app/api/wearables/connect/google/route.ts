@@ -35,16 +35,12 @@ export async function GET(req: Request) {
     googleAuthUrl.searchParams.set('access_type', 'offline');
     googleAuthUrl.searchParams.set('prompt', 'consent');
     googleAuthUrl.searchParams.set('state', userId);
-    googleAuthUrl.searchParams.set(
-      'scope',
-      [
-        'https://www.googleapis.com/auth/fitness.activity.read',
-        'https://www.googleapis.com/auth/fitness.sleep.read',
-        'https://www.googleapis.com/auth/fitness.heart_rate.read',
-        'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
-        'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly',
-      ].join(' ')
-    );
+    const scopes = [
+      'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
+      'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly',
+    ].join(' ');
+
+    googleAuthUrl.searchParams.set('scope', scopes);
 
     return NextResponse.redirect(googleAuthUrl.toString());
   } catch (err: any) {
