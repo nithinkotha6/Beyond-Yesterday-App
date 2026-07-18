@@ -44,6 +44,10 @@ graph TD
 4. **Vercel Serverless Deployment:**
    - Hosts the Next.js application, executing Server Actions and webhook/cron route handlers as serverless functions.
    - Configured with `maxDuration = 60` for LLM route processing.
+5. **Google Health API v4:**
+   - Provides sync engines to retrieve steps, resting heart rate, and sleep metrics.
+6. **Telegram Bot Webhook Integration:**
+   - Ingests textual activity updates from a Telegram bot.
 
 ### 1.3 Environment Variables (`.env.local`)
 
@@ -58,8 +62,8 @@ graph TD
 | `GREEN_API_INSTANCE_ID` | Server-Only | Unique instance identifier for the GreenAPI WhatsApp gateway. |
 | `GREEN_API_TOKEN` | Server-Only | API access token for the GreenAPI WhatsApp gateway. |
 | `WHATSAPP_GROUP_ID` | Server-Only | Target WhatsApp group JID (`xxxx@g.us`) to filter incoming messages and dispatch outbound replies. |
-| `GOOGLE_CLIENT_ID` | Server-Only | Client ID for Google Fit OAuth integration. |
-| `GOOGLE_CLIENT_SECRET` | Server-Only | Client Secret for Google Fit OAuth integration. |
+| `GOOGLE_CLIENT_ID` | Server-Only | Client ID for Google Health OAuth integration. |
+| `GOOGLE_CLIENT_SECRET` | Server-Only | Client Secret for Google Health OAuth integration. |
 | `SESSION_SECRET` | Server-Only | Secret key (min 32 characters) used to sign and encrypt the `app_session` JWT. |
 | `CRON_SECRET` | Server-Only | Bearer token verified in request headers (`Authorization: Bearer <secret>`) to authorize cron trigger endpoints. |
 | `NEXT_PUBLIC_APP_URL` | Client & Server | The public root URL of the deployment (e.g. `https://beyond-yesterday-app.vercel.app`). Used for OAuth redirects. |
@@ -89,28 +93,29 @@ Stores isolated training clusters.
 #### Table: `profiles`
 Represents individual athletes. Identities are resolved using the `app_session` cookie containing the profile's UUID.
 - **PK:** `id` (uuid)
-- **Constraints & Indexes:** `email` (unique), `(group_id, pin)` (unique), index on `is_active`
+- **Constraints & Indexes:** `email` UNIQUE (`profiles_email_unique`), `phone_number` UNIQUE (`profiles_phone_number_unique`), `(group_id, pin)` UNIQUE (`profiles_group_pin_key`), index on `is_active`
 - **SQL Structure:**
 | Column Name | Data Type | Constraints | Default Value | Description |
 |---|---|---|---|---|
 | `id` | `uuid` | PK | `uuid_generate_v4()` | Unique profile ID |
 | `full_name` | `text` | NOT NULL | None | First name (no spaces) |
-| `nickname` | `text` | None | None | Display nickname |
-| `email` | `text` | UNIQUE | None | Email address |
+| `nickname` | `text` | NOT NULL | None | Display nickname |
+| `email` | `text` | UNIQUE, NOT NULL | None | Email address |
 | `pin` | `varchar(4)` | None | None | 4-character personal PIN |
 | `avatar_url` | `text` | None | NULL | URL to profile picture |
 | `telegram_user_id` | `text` | UNIQUE | NULL | Telegram user JID for bot extraction |
 | `total_xp` | `integer` | NOT NULL | `0` | Cumulative XP awarded for verified logs |
 | `current_level` | `integer` | NOT NULL | `1` | Calculated level |
-| `gender` | `text` | None | NULL | Profile gender ('Male' or 'Female') |
+| `gender` | `text` | NOT NULL | None | Profile gender ('Male' or 'Female') |
 | `role` | `text` | None | `'member'` | App role ('member', 'co-admin', 'admin') |
-| `group_id` | `uuid` | FK references `groups(id)` | NULL | Primary group context |
+| `group_id` | `uuid` | FK references `groups(id)` ON DELETE CASCADE | NULL | Primary group context |
+| `phone_number` | `text` | UNIQUE, NOT NULL | None | WhatsApp user JID/Phone number |
 | `is_active` | `boolean` | None | `true` | Soft-delete active flag |
 | `created_at` | `timestamptz` | NOT NULL | `now()` | Registration timestamp |
 
 #### Table: `group_members`
 A join table resolving member groupings.
-- **PK:** `(user_id, group_id)`
+- **PK:** composite `(user_id, group_id)`
 - **Constraints & Indexes:** Index on `group_id`
 - **SQL Structure:**
 | Column Name | Data Type | Constraints | Default Value | Description |
@@ -182,6 +187,18 @@ Group-scoped custom dynamic metrics.
 | `is_hidden` | `boolean` | NOT NULL | `false` | soft-hide toggle |
 | `created_at` | `timestamptz` | NOT NULL | `now()` | Registration timestamp |
 
+#### Table: `bot_persistent_state`
+Stores group-scoped persistent mood and active targeted user roasts/rizz directives for the AI chatbot.
+- **PK:** `group_id` (uuid)
+- **Constraints & Indexes:** FK references `groups(id)` ON DELETE CASCADE, FK references `profiles(id)` ON DELETE SET NULL
+- **SQL Structure:**
+| Column Name | Data Type | Constraints | Default Value | Description |
+|---|---|---|---|---|
+| `group_id` | `uuid` | PK, FK references `groups(id)` ON DELETE CASCADE | None | Target group reference |
+| `persistent_mood` | `text` | CHECK IN ('Normal', 'Angry', 'Sad', 'Horny', 'Happy', 'Flirting', 'Romantic', 'Arrogant', 'Sarcastic') | `'Normal'` | The active emotional vibe of the bot |
+| `target_user_id` | `uuid` | FK references `profiles(id)` ON DELETE SET NULL | NULL | Profile ID of targeted member |
+| `updated_at` | `timestamptz` | NOT NULL | `now()` | Last settings update date |
+
 #### Table: `wearable_connections`
 Wearable account tokens.
 - **PK:** `id` (uuid)
@@ -191,24 +208,27 @@ Wearable account tokens.
 |---|---|---|---|---|
 | `id` | `uuid` | PK | `uuid_generate_v4()` | Connection ID |
 | `user_id` | `uuid` | FK references `profiles(id)` ON DELETE CASCADE | None | Athlete profile |
-| `provider` | `text` | NOT NULL | None | Provider name (e.g., 'Whoop', 'google_fit') |
-| `access_token` | `text` | NOT NULL | None | Google Fit Access Token |
-| `refresh_token` | `text` | NOT NULL | None | Google Fit Refresh Token |
-| `token_expires_at` | `timestamptz` | NOT NULL | None | Token expiration timestamp |
+| `provider` | `text` | NOT NULL | None | Provider name (e.g., 'whoop', 'google_health_v4') |
+| `access_token` | `text` | NOT NULL | None | Google Health Access Token |
+| `refresh_token` | `text` | NOT NULL | None | Google Health Refresh Token |
+| `expires_at` | `timestamptz` | NOT NULL | None | Token expiration timestamp |
 | `last_synced_at` | `timestamptz` | None | NULL | Date/time of last sync |
+| `backfill_completed` | `boolean` | NOT NULL | `false` | Backfill completed flag |
 | `created_at` | `timestamptz` | NOT NULL | `now()` | Record creation date |
 
 #### Tables: `wearable_steps`, `wearable_sleep`, `wearable_resting_hr`
 Internal caching ledger for wearable sync.
 - **PK:** `id` (uuid)
-- **Constraints & Indexes:** UNIQUE `(connection_id, logged_date)`
+- **Constraints & Indexes:** UNIQUE `(connection_id, logged_date)`, UNIQUE `(user_id, logged_date)`
 - **SQL Structure:**
 | Column Name | Data Type | Constraints | Default Value | Description |
 |---|---|---|---|---|
 | `id` | `uuid` | PK | `uuid_generate_v4()` | Row ID |
 | `connection_id` | `uuid` | FK references `wearable_connections(id)` ON DELETE CASCADE | None | Parent wearable connection |
+| `user_id` | `uuid` | FK references `profiles(id)` ON DELETE CASCADE | None | Target athlete profile |
 | `logged_date` | `date` | NOT NULL | None | Target sync date |
-| `value` | `integer` / `numeric` | NOT NULL | None | Synced count/measurement |
+| `value` | `integer` / `numeric` | NOT NULL | None | Synced steps, resting bpm, or sleep hours |
+| `source` | `text` | None | `'wearable_sync'` | Ingestion source label |
 | `updated_at` | `timestamptz` | NOT NULL | `now()` | Cache update timestamp |
 
 #### Table: `memories`
@@ -332,6 +352,8 @@ This isolates data so that a request can only fetch or modify rows matching the 
 | `chat_history` | `ALL` | `service_role` | `true` (Accessed only via background webhooks) |
 | `system_settings` | `SELECT` | `anon` | `true` (Mute check is public) |
 | | `ALL` | `service_role`, `authenticated` | `true` (Writable via admin operations) |
+| `bot_persistent_state`| `ALL` | `anon`, `authenticated` | `group_id = x-group-id` |
+| | `ALL` | `service_role` | `true` (Bypasses all RLS checks) |
 | `member_lore` | `ALL` | `anon`, `authenticated` | `true` (Managed at app layer via admin actions) |
 | `vocab_banks` | `ALL` | `authenticated` | `true` (Managed at app layer via admin actions) |
 
@@ -402,8 +424,10 @@ sequenceDiagram
     Webhook->>DB: Fetch last 10 messages from chat_history
     Webhook->>DB: Fetch last 5 verified achievements
     Webhook->>DB: Fetch Top Golf scores & calculate leaderboard
+    Webhook->>DB: Fetch bot_persistent_state (mood & target user)
+    Webhook->>DB: Fetch active profiles (7d slacker check)
     
-    Webhook->>Gemini: Call generateText() with system prompt + history + stats
+    Webhook->>Gemini: Call generateText() with system prompt + history + stats + mood + slackers
     Gemini-->>Webhook: Return generated response
     Webhook->>Webhook: Apply token word limit & strip newlines (\n)
     Webhook->>WA: POST sendMessage to GreenAPI
@@ -422,13 +446,18 @@ System configurations defined in [prompts.ts](file:///c:/Users/nithi/Downloads/B
    - **PUNCH DIALOGUE PARODIES:** (Balayya, Trivikram style). Dramatic punch dialogues applied to mundane routines (e.g., *"Evadu kodithe dimma thirigi... andaru 5k run ki ravali!"*).
    - **EVERYDAY desihood:** IT job fatigue, biryani obsessions, mothers' scolding patterns, horoscope jokes, Dallas/Texas NRI desi tropes.
 6. **Information Guardrail:** Do not mention stats, metrics, or leaderboards unless explicitly asked. Casually joke and roast instead. No website URLs or fake stats.
+7. **Flirting Rizz Matrix:**
+   - **Target Male:** Tollywood heroine persona. Flirts aggressively, acts possessive, jealous, and dramatic.
+   - **Target Female:** Sigma male persona. Flirts with cool, arrogant, and smooth rizz.
+   - **Unknown/Neutral:** Heavy sarcasm, friend roasts.
 
-### 4.3 Dynamic Lore & Vocab Routing
+### 4.3 Dynamic Lore, Mood, & Vocab Routing
 - **Vocab Banks Routing:** Slang words are dynamically resolved in `getSlangFor(tone, gender)` inside [slangRouter.ts](file:///c:/Users/nithi/Downloads/Beyond-Yesterday/beyond-yesterday-app/utils/slangRouter.ts). The UI-selected tone and the user's gender mapped from database records determine which array of Romanized Telugu terms to select.
 - **Lore Context Integration:** When a poke broadcast is triggered, `member_lore` (stunts, habits, ego trigger, catchphrase, nemesis) is queried. These traits are compiled into direct instructions:
   - *Example:* `stunts` -> `"Inside joke stunts/events: underwater breath hold 2 mins"`
   - *Example:* `nemesis` -> `"Their gang nemesis: Kaushik"`
-  - These values are appended directly to the system prompt to guide the LLM's response.
+- **Persistent Mood Directive:** If the bot's mood is set to something other than `'Normal'` (e.g. `'Angry'`, `'Sad'`, `'Horny'`, `'Flirting'`, etc.) in `bot_persistent_state`, the system prompt injects a directive to maintain this emotional tone. If a `target_user_id` is specified, this mood is directed specifically at that member; otherwise, it is applied globally.
+- **Inactivity Slacker Shaming:** The webhook fetches active members who logged 0 verified activities in the past 7 days. If slackers are identified, the prompt lists their names and instructs the LLM to actively roast them for laziness using funny Romanized Telugu terms (e.g. *adavi manishi, waste fellow*).
 
 ### 4.4 Output Clamping & Formatting
 To prevent verbose, paragraphs-heavy responses that disrupt WhatsApp group formatting:
@@ -446,7 +475,7 @@ Administrators can trigger a manual broadcast in settings via the **AI Tone Disp
 
 ---
 
-## SECTION 5: GREENAPI (WHATSAPP) INTEGRATION WORKFLOWS
+## SECTION 5: GREENAPI (WHATSAPP) & TELEGRAM BOT INTEGRATION WORKFLOWS
 
 ### 5.1 Webhook Processing
 The endpoint `/api/webhooks/whatsapp/route.ts` processes incoming events from the group chat.
@@ -488,7 +517,26 @@ Used in the Memories tab when a photo is uploaded. It dispatches a request using
 }
 ```
 
-### 5.3 Error Handling & Rate Limiting
+### 5.3 Telegram Webhook Ingestion
+The endpoint `/api/telegram/route.ts` acts as the ingestion handler for activities submitted via the Telegram Bot.
+
+1. **Security Hook Verification:**
+   - Evaluates the header `x-telegram-bot-api-secret-token` against the environment variable `TELEGRAM_WEBHOOK_SECRET` using timing-safe constant-time string comparison (`safeCompare`). If it does not match, rejects the request immediately with HTTP `401 Unauthorized`.
+2. **User Identity & Group Membership Resolution:**
+   - Extracts the incoming text and the Telegram user ID from `message.from.id`.
+   - Resolves the athlete profile by looking up the unique natural key `telegram_user_id` in the database.
+   - Resolves the profile's active group membership via the `group_members` junction table.
+   - If user or membership lookup fails, the handler returns HTTP `200 OK` (silently acknowledging to Telegram to halt webhook retry loops).
+3. **Structured AI Extraction Pipeline:**
+   - Dispatches a prompt to Google Gemini via `executeWithKeyRotation()` to parse the text.
+   - Constrains output to a strict Zod schema (`metric_slug` as lowercase snake_case, `value` as positive number, and `unit` as text) using `generateObject` with `SYSTEM_PROMPT`.
+   - Remaps display names to slugs or custom definitions dynamically.
+4. **Log Insertion & Status Logic:**
+   - Inserts the activity record into `metric_logs`.
+   - Sets `status` to `'pending'` for `'car_top_speed'` or `'most_beers'`.
+   - Sets `status` to `'verified'` for all other metrics, triggering database XP adjustments.
+
+### 5.4 Error Handling & Rate Limiting
 - **API Key Rotation Pool:** The utility [geminiPool.ts](file:///c:/Users/nithi/Downloads/Beyond-Yesterday/beyond-yesterday-app/utils/geminiPool.ts) intercepts `429 / RESOURCE_EXHAUSTED` errors from the Gemini API. It catches these failures, switches to the next configured API key in `GEMINI_API_KEYS`, cascades down model fallback tiers (`gemini-2.0-flash-lite`, `gemini-3.1-flash-lite`), and retries the request.
 - **Fail-Safe Webhook Acknowledgements:** The webhook returns a standard `200 OK` response to GreenAPI even if LLM parsing fails or rate limits are hit. This prevents GreenAPI from retrying the request and spamming the server.
 
@@ -563,15 +611,31 @@ graph LR
 ### 7.1 Wearables Sync Engine (`/api/cron/sync-wearables`)
 Invoked periodically via GET requests containing a bearer `Authorization: Bearer <secret>` header.
 
-1. **Authorization Token Refresh:** Queries all connections from `wearable_connections`. For Google Fit connections, it compares the current time against `token_expires_at`. If the token is expired or expiring within 5 minutes (300,000ms), it requests a refresh token exchange from `https://oauth2.googleapis.com/token` and updates the database.
-2. **Data Sync logic:**
-   - **Google Fit API Sync:** Fetches steps data from the aggregate dataset endpoint and sleep data from the sessions endpoint (`activityType=72`). For heart rate, it attempts to fetch resting heart rate directly, falling back to extracting the lowest recorded bpm value from the merge heart rate dataset if needed.
-   - **Mock Sync Simulation:** For non-Google Fit connections (e.g., 'Whoop'), the sync engine runs a mock generator:
-     - Steps: 1,500 - 5,500 steps.
-     - Sleep: 6.0 - 9.0 hours.
-     - Resting Heart Rate: 48 - 63 bpm.
-3. **Database Insertion & De-duplication:** For both real and mock syncs, the engine deletes any existing wearable logs for the user on the target calendar day before inserting the new verified logs. This prevents duplicate entries and keeps leaderboard data accurate.
-4. **Sync Completion:** Updates `last_synced_at` to the current timestamp in `wearable_connections`.
+1. **Authorization Token Refresh:**
+   - Queries all connections from `wearable_connections`.
+   - Checks connection token expiry: compares current time against `expires_at`.
+   - If the token has expired or will expire within 5 minutes (300,000ms), dispatches a POST request to token refresh endpoint `https://oauth2.googleapis.com/token` and updates `access_token` and `expires_at` in the database.
+2. **OAuth Scope Verification Audit:**
+   - Resolves active token scopes by querying `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=...`.
+   - Audits that user has granted permissions for `googlehealth.activity_and_fitness.readonly` and `googlehealth.health_metrics_and_measurements.readonly`. Logs warnings if the token lacks required scopes.
+3. **Data Sync logic (Google Health API v4):**
+   - **Determine Sync Window:**
+     - **Tier 1 (Historical Backfill):** If `backfill_completed` is `false`, synchronizes historical logs starting from `2026-01-01T00:00:00.000Z` to the current time.
+     - **Tier 2 (Routine Daily Sync):** If `backfill_completed` is `true`, routine sync targets only today (start of today to now).
+   - **Chunk Windows:**
+     - Chunks target query range into 30-day windows to prevent `INVALID_ROLLUP_QUERY_DURATION` API errors (Google Health v4 limits rollup queries to 90 days).
+   - **Fetch Steps & Heart Rate:**
+     - Dispatches POST requests to `:dailyRollUp` endpoints: `https://health.googleapis.com/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp` and `https://health.googleapis.com/v4/users/me/dataTypes/daily-resting-heart-rate/dataPoints:dailyRollUp`.
+   - **Fetch Sleep:**
+     - Dispatches GET requests to list data points: `https://health.googleapis.com/v4/users/me/dataTypes/sleep/dataPoints?filter=...` filtering by interval end time. Hours of sleep are aggregated per calendar day.
+4. **Mock Sync Simulation (Whoop):**
+   - **Tier 1 Backfill:** Generates mock daily rows from `2026-01-01` to today if `backfill_completed` is `false`.
+   - **Tier 2 Sync:** Generates a single mock row for the current day if `backfill_completed` is `true`.
+   - **Generated Ranges:** Steps (1,500 - 5,500), sleep (6.0 - 9.0 hours), resting heart rate (48 - 63 bpm).
+5. **Database Persistence & De-duplication:**
+   - Compiles parsed steps, sleep, and heart rate payloads containing `user_id`, `connection_id`, `logged_date`, `value`, and `source` (`'google_health_v4'` or `'wearable_sync'`).
+   - Uses `UPSERT` to write records to `wearable_steps`, `wearable_sleep`, and `wearable_resting_hr` targeting the constraint `(user_id, logged_date)`.
+   - If sync is successful and data is non-empty, updates `backfill_completed = true` (marking backfill complete) and sets `last_synced_at` to the current timestamp.
 
 ### 7.2 Daily Streak Whistle Briefing (`/api/cron/daily-whistle`)
 Runs daily to generate a morning briefing for each group with active WhatsApp credentials.
@@ -602,4 +666,4 @@ Runs daily to compile a summary of verified achievements logged across the group
 
 ### 8.2 Build and Optimization Pipeline
 - Next.js compiles page routes, tree-shakes dead code, and optimizes bundles using Next.js Turbopack.
-- Supabase schema migrations are maintained as SQL scripts in `supabase/migrations/` (from `0001_initial_schema.sql` to `0015_add_is_hidden_to_metrics.sql`), matching the consolidated schema defined in `sql/consolidated_schema.sql`.
+- Supabase schema migrations are maintained as SQL scripts in `supabase/migrations/` (from `0001_initial_schema.sql` to `0020_wearable_tables_constraints.sql`), matching the consolidated schema defined in `sql/consolidated_schema.sql` and `sql/BASELINE_SCHEMA.sql`.
